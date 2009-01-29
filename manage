@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# vim: sw=4 ts=4 fenc=utf-8 et
+# ==============================================================================
+# Copyright © 2009 UfSoft.org - Pedro Algarvio <ufs@ufsoft.org>
+#
+# License: BSD - Please view the LICENSE file for additional information.
+# ==============================================================================
+
+import os
+from werkzeug import script
+from werkzeug.serving import run_simple
+
+def make_screener(instance_folder):
+    """Helper function that creates a new screener instance."""
+    from screener.application import Screener
+    return Screener(instance_folder)
+
+def shell_init_func(instance_folder):
+    """Called on shell initialization.  Adds useful stuff to the namespace."""
+    from screener import database, urls
+    screener = make_screener(instance_folder)
+    screener.bind_to_context()
+    return {
+        'db': database,
+        'urls': urls,
+        'screener': screener,
+    }
+
+def action_shell(instance_folder='./instance', use_ipython=True):
+    """Start a new interactive python session."""
+    banner = 'Screener Interactive Shell'
+    namespace = shell_init_func(instance_folder)
+    if use_ipython:
+        try:
+            import IPython
+        except ImportError:
+            pass
+        else:
+            sh = IPython.Shell.IPShellEmbed(banner=banner)
+            sh(global_ns={}, local_ns=namespace)
+            return
+    from code import interact
+    interact(banner, local=namespace)
+
+
+def action_runserver(instance_folder='./instance', hostname='0.0.0.0',
+                     port=5000, use_reloader=True, use_debugger=False,
+                     use_evalex=True, threaded=False, processes=1):
+    """Returns an action callback that spawns a new wsgiref server."""
+    app = make_screener(instance_folder)
+    run_simple(hostname=hostname, port=port, application=app,
+               use_reloader=use_reloader, use_debugger=use_debugger,
+               use_evalex=use_evalex, threaded=threaded, processes=processes)
+
+def action_initdb(instance_folder='./instance'):
+    """Initialize the database"""
+    make_screener(instance_folder).init_database()
+
+if __name__ == '__main__':
+    script.run()
