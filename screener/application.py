@@ -6,40 +6,47 @@
 # License: BSD - Please view the LICENSE file for additional information.
 # ==============================================================================
 
+import sys
 from ConfigParser import SafeConfigParser
 from os import path, makedirs
 from types import ModuleType
 from sqlalchemy import create_engine
 from werkzeug.utils import ClosingIterator, SharedDataMiddleware, redirect
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import HTTPException, NotFound
 
 from screener.database import metadata, session
-from screener.utils import Request, Response, local, local_manager, href
+from screener.utils import (Request, Response, local, local_manager,
+                            generate_template, url_for, UploadsMiddleware)
 from screener.urls import url_map, handlers
-from screener.views import invalid
 
 #: path to shared data
 SHARED_DATA = path.join(path.dirname(__file__), 'shared')
+
+sys.modules['screener.config'] = config = ModuleType('config')
 
 class Screener(object):
     """Our central WSGI application."""
 
     def __init__(self, instance_folder):
-        self.instance_folder = instance_folder
+        self.instance_folder = path.abspath(instance_folder)
         self.url_map = url_map
-        self.config = ModuleType('config')
         self.setup_screener()
-        self.database_engine = create_engine(self.config.database_uri)
+        self.database_engine = create_engine(config.database_uri)
 
         # apply our middlewares.   we apply the middlewares *inside* the
         # application and not outside of it so that we never lose the
         # reference to the `Screener` object.
         self._dispatch = SharedDataMiddleware(self.dispatch_request, {
-            '/shared':     SHARED_DATA
+            '/shared':     SHARED_DATA,
+            '/temp':       path.join(config.uploads_path, 'temp')
         })
 
         # free the context locals at the end of the request
         self._dispatch = local_manager.make_middleware(self._dispatch)
+        self._uploads = UploadsMiddleware(self._dispatch,
+                                          path.join(config.uploads_path, 'temp'),
+                                          endpoint='/uploads')
+        self._dispatch = local_manager.make_middleware(self._uploads)
 
     def setup_screener(self):
         if not path.exists(self.instance_folder):
@@ -58,12 +65,12 @@ class Screener(object):
             parser.readfp(open(config_file))
             parser.set('main', 'here', self.instance_folder)
 
-        self.config.database_uri = parser.get('main', 'database_uri')
-        self.config.uploads_path = parser.get('main', 'uploads_path')
-        self.config.max_size = parser.getint('main', 'max_size')
+        config.database_uri = parser.get('main', 'database_uri')
+        config.uploads_path = path.abspath(parser.get('main', 'uploads_path'))
+        config.max_size = parser.getint('main', 'max_size')
 
-        if not path.isdir(self.config.uploads_path):
-            makedirs(self.config.uploads_path)
+        if not path.isdir(config.uploads_path):
+            makedirs(config.uploads_path)
 
 
 
@@ -84,35 +91,24 @@ class Screener(object):
         # creating a request object, propagating the application to the
         # current context and instanciating the database session.
         self.bind_to_context()
-#        urls = self.url_map.bind_to_environ(environ)
         request = Request(environ)
         request.bind_to_context()
+        request.config = config
 
-#        urls = self.url_map.bind_to_environ(environ)
-#        local.url_adapter = adapter = url_map.bind_to_environ(environ)
-#        endpoint, params = adapter.match(request.path)
+        self.url_adapter = url_map.bind_to_environ(environ)
 
-        urls = url_map.bind_to_environ(environ)
-        endpoint, params = urls.match()
-
-        print endpoint, params
         try:
+            endpoint, params = self.url_adapter.match()
             action = handlers[endpoint]
-        except KeyError:
-#            action = handlers['invalid']
-            action = invalid
-
-        try:
             response = action(request, **params)
+        except (KeyError, NotFound), e:
+            response = Response(generate_template('404.html'))
+            response.status_code = 404
         except HTTPException, e:
             response = e.get_response(environ)
 
-        print 123
-        # make sure the session is removed properly
-        return ClosingIterator(
-            response(environ, start_response),
-#            session.remove
-        )
+        return ClosingIterator(response(environ, start_response),
+                               session.remove)
 
     def __call__(self, environ, start_response):
         """Just forward a WSGI call to the first internal middleware."""

@@ -10,7 +10,7 @@ from datetime import datetime
 from sqlalchemy import (Table, Column, Integer, String, DateTime, ForeignKey,
                         MetaData, join)
 
-from sqlalchemy.orm import relation, create_session, scoped_session
+from sqlalchemy.orm import relation, create_session, scoped_session, mapper
 from screener.utils import application, local_manager
 
 metadata = MetaData()
@@ -29,3 +29,18 @@ def new_db_session():
 # and create a new global session factory.  Calling this object gives
 # you the current active session
 session = scoped_session(new_db_session, local_manager.get_ident)
+
+category_table = Table('categories', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String, nullable=False),
+    Column('stamp', DateTime, default=datetime.utcnow()),
+    Column('secret', String),
+)
+
+image_table = Table('images', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('filename', String, nullable=False),
+    Column('stamp', DateTime, default=datetime.utcnow()),
+    Column('description', String),
+    Column('secret', String),
+)

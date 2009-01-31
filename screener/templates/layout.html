@@ -4,7 +4,8 @@
     <head py:attrs="select('@*')">
       <title py:with="title = list(select('title/text()'))"><py:if
              test="title">${title} — </py:if>Screener</title>
-      <link rel="stylesheet" type="text/css" href="${href('shared', 'style.css')}" />
+      <link rel="stylesheet" type="text/css"
+            href="${shared_url('style.css')}" />
       ${select('*[local-name()!="title"]')}
     </head>
   </py:match>
@@ -12,13 +13,14 @@
     <body py:attrs="select('@*')">
       <div class="bodywrapper">
         <div class="header">
-          <h1><a href="${href()}">Screener</a></h1>
+          <span class="copyright">Screener &copy; 2009 &mdash; UfSoft.org</span>
+          <ul>
+            <li><a href="${url_for('upload')}">Upload</a></li>
+            <li class="first"><a href="${url_for('index')}">Home</a></li>
+          </ul>
         </div>
         <div class="contents">
           ${select('*|text()')}
-        </div>
-        <div class="footer">
-          Screener by Ufsof.org
         </div>
       </div>
     </body>

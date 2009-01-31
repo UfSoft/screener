@@ -40,7 +40,28 @@ div.header ul li a:hover { color: #2c8fc8; text-decoration: none; }
 div.contents {
   margin: 0 auto 0 auto;
   width: 900px;
-  padding-left: 25px;
 }
 
 .frame { float: left; padding: 10px; }
+
+.form, .form legend, .form input {
+  background-color: #5d7685;
+  -moz-border-radius: 7px;
+  -webkit-border: 7px;
+}
+.form { -moz-border-radius: 10px; -webkit-border: 10px; }
+
+
+.form input { background-color: #fff; padding: 2px 5px; }
+.form { margin: 30px; }
+.form legend {
+  margin-left: 25px;
+  padding: 5px 10px;
+  border: 1px solid #fff;
+  margin-bottom: 5px;
+
+}
+.form input[type="submit"] { background-color: #5d7685; color: #fff; }
+.form table tr th { text-align: right; }
+.form table tr td { text-align: left; }
+div.buttons { margin-top: 20px; }
