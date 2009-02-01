@@ -92,15 +92,15 @@ class FileSizeOk(Exception):
     """p"""
 
 
-class UploadsMiddleware(object):
+class UploadsMiddleware1(object):
     uploads = {}
     def __init__(self, app, uploads_folder, endpoint='/upload',
                  max_size=101024,
                  shared_path=path.join(path.dirname(__file__), 'shared')):
 
-        shared_path = endpoint.rstrip('/') + '/static'
+        self.shared_url = endpoint.rstrip('/') + '/static'
         self.app = SharedDataMiddleware(app, {
-            endpoint.rstrip('/') + '/static': shared_path}
+            self.shared_url: shared_path}
         )
         self.uploads_folder = uploads_folder
         self.endpoint = endpoint
@@ -109,6 +109,7 @@ class UploadsMiddleware(object):
 
 
     def handle_get(self, request, environ, start_response):
+        response = Response(environ)
         if 'stats' in request.values:
             print 'AJAX'
             uuid = request.values.get('stats')
@@ -207,11 +208,139 @@ class UploadsMiddleware(object):
         raise StopIteration
 
     def __call__(self, environ, start_response):
-        request = Request(environ)
+        request = Request(environ, shallow=True)
+        if request.path == '/upload':
+            import re
+            response = Response.from_app(self.app, environ)
+
+            body = response.response.next()
+            _start_head_re = re.compile(r'</head.*?>', re.I|re.S)
+            match = _start_head_re.search(body)
+            if match:
+                print 'start'
+                print body[:match.start()]
+                print 'end'
+                print body[match.start():]
+                js = """\
+<script src="%(path)s/js/jquery.js" type="text/javascript"></script>
+<script src="%(path)s/js/jquery.blockUI.js" type="text/javascript"></script>
+<script src="%(path)s/js/screener.js" type="text/javascript"></script>"""
+                body = body[:match.start()] + js % {'path': self.shared_url} + body[match.start():]
+
+            start_response(response.status, response.headers.to_list())
+            yield body
+            while 1:
+                yield response.response.next()
+
+            print response
+            pprint(response.__dict__)
+            pprint(response.response.__dict__)
+            print response.response
+            print response.response.next()
+            start_response(response.status, response.headers.to_list())
+#            return response.response
+#            return self.app(environ, start_response)
         if not request.path.startswith(self.endpoint):
-            return self.app(environ, start_response)
+            yield self.app(environ, start_response)
 
         if request.path == self.endpoint and request.method == 'GET':
-            return self.handle_get(request, environ, start_response)
+            yield self.handle_get(request, environ, start_response)
         if request.path == self.endpoint and request.method == 'POST':
-            return self.handle_post(request, environ, start_response)
+            yield self.handle_post(request, environ, start_response)
+
+        raise StopIteration
+
+class UploadsMiddleware(object):
+    uploads = {}
+    def __init__(self, app, uploads_folder, endpoint='/upload',
+                 max_size=101024,
+                 shared_path=path.join(path.dirname(__file__), 'shared')):
+
+        self.shared_url = endpoint.rstrip('/') + '/static'
+        self.app = SharedDataMiddleware(app, {
+            self.shared_url: shared_path}
+        )
+        self.uploads_folder = uploads_folder
+        self.endpoint = endpoint
+        self.max_size = max_size
+
+    def __call__(self, environ, start_response):
+        if environ.get('REQUEST_METHOD') == 'GET':
+            request = Request(environ, shallow=True)
+            print request.headers
+            if 'uploadID' in request.args:
+                upload_id = request.args.get('uploadID')
+                if download_id not in self.uploads:
+                    data = {'error': "The download with the ID: %s is not "
+                                     "beeing managed"}
+                else:
+                    data = simplejson.dumps(self.uploads.get(upload_id))
+
+                headers = [('Content-Type', 'text/javascript'),
+                           ('Content-Length', str(len(data)))]
+                print data, type(data)
+                start_response('200 OK', headers)
+                return [str(data)]
+            return self.app(environ, start_response)
+        if environ.get('REQUEST_METHOD') == 'POST':
+            # Request not shallow, we might change the request
+            request = Request(environ, shallow=False)
+            print request.values
+            if request.files:
+                return self.handle_upload(request, environ, start_response)
+            return self.app(environ, start_response)
+
+    def handle_upload(self, request, environ, start_response):
+
+        import time
+        print 'handling uploads'
+        uuid = uuid4().hex
+        headers = [
+            ('Content-Type', 'text/html'),
+            ('Content-Length', '0'),
+            ('X-Upload-ID', uuid)]
+        start_response('200 OK', headers)
+        yield ''
+
+        print request.files
+        uploaded_file = request.files.get('uploaded_file')
+
+        output_path = path.join(self.uploads_folder, uuid)
+        makedirs(output_path)
+        output_file_path = path.join(output_path, uploaded_file.filename)
+        output_file = open(output_file_path, 'wb')
+        self.uploads[uuid] = {
+            'status': 0,
+            'size': 0,
+            'fname': uploaded_file.filename
+        }
+        try:
+            self.uploads[uuid]['status'] = 1
+            while 1:
+                if output_file.tell() > self.max_size:
+                    raise FileTooBig
+                data = uploaded_file.read(1024)
+                if not data:
+                    raise FileSizeOk
+                output_file.write(data)
+                self.uploads[uuid]['size'] = output_file.tell()
+                time.sleep(1)
+        except FileTooBig:
+            output_file.close()
+            self.uploads[uuid]['status'] = -1
+            self.uploads[uuid]['msg'] = "File is too big"
+            remove(output_file_path)
+            removedirs(output_path)
+        except FileSizeOk:
+            output_file.close()
+            self.uploads[uuid]['status'] = 2
+            move(output_file_path, self.uploads_folder)
+            removedirs(output_path)
+
+#        response = Response.from_app(self.app, environ)
+#        while 1:
+#            print 'yeilding'
+#            yield response.response.next()
+        raise StopIteration
+
+
