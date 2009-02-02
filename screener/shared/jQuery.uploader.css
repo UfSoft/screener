@@ -1,4 +1,0 @@
-@media screen;
-
-/* Firefox 3 fix: http://code.google.com/p/swfobject/wiki/faq */
-object { outline: none; }

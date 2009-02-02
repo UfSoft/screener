@@ -16,7 +16,7 @@ from werkzeug.exceptions import HTTPException, NotFound
 
 from screener.database import metadata, session
 from screener.utils import (Request, Response, local, local_manager,
-                            generate_template, url_for, UploadsMiddleware)
+                            generate_template, url_for)
 from screener.urls import url_map, handlers
 
 #: path to shared data
@@ -43,10 +43,6 @@ class Screener(object):
 
         # free the context locals at the end of the request
         self._dispatch = local_manager.make_middleware(self._dispatch)
-        self._uploads = UploadsMiddleware(self._dispatch,
-                                          path.join(config.uploads_path, 'temp'),
-                                          endpoint='/uploads')
-        self._dispatch = local_manager.make_middleware(self._uploads)
 
     def setup_screener(self):
         if not path.exists(self.instance_folder):
@@ -58,12 +54,11 @@ class Screener(object):
             parser.add_section('main')
             parser.set('main', 'database_uri', 'sqlite:///%(here)s/database.db')
             parser.set('main', 'uploads_path', '%(here)s/uploads')
-            parser.set('main', 'max_size', '2048')
+            parser.set('main', 'max_size', '10485760') # 10 Mb
             parser.write(open(config_file, 'w'))
-            parser.set('main', 'here', self.instance_folder)
         else:
             parser.readfp(open(config_file))
-            parser.set('main', 'here', self.instance_folder)
+        parser.set('main', 'here', self.instance_folder)
 
         config.database_uri = parser.get('main', 'database_uri')
         config.uploads_path = path.abspath(parser.get('main', 'uploads_path'))
@@ -71,7 +66,6 @@ class Screener(object):
 
         if not path.isdir(config.uploads_path):
             makedirs(config.uploads_path)
-
 
 
     def init_database(self):
