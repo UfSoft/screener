@@ -9,6 +9,7 @@
 import sys
 from ConfigParser import SafeConfigParser
 from os import path, makedirs
+from time import time
 from types import ModuleType
 from sqlalchemy import create_engine
 from werkzeug.utils import ClosingIterator, SharedDataMiddleware, redirect
@@ -17,6 +18,7 @@ from werkzeug.exceptions import HTTPException, NotFound
 from screener.database import metadata, session
 from screener.utils import (Request, Response, local, local_manager,
                             generate_template, url_for)
+from screener.utils.crypto import gen_secret_key
 from screener.urls import url_map, handlers
 
 #: path to shared data
@@ -55,6 +57,8 @@ class Screener(object):
             parser.set('main', 'database_uri', 'sqlite:///%(here)s/database.db')
             parser.set('main', 'uploads_path', '%(here)s/uploads')
             parser.set('main', 'max_size', '10485760') # 10 Mb
+            parser.set('main', 'secret_key', gen_secret_key())
+            parser.set('main', 'cookie_name', 'screener_cookie')
             parser.write(open(config_file, 'w'))
         else:
             parser.readfp(open(config_file))
@@ -63,6 +67,9 @@ class Screener(object):
         config.database_uri = parser.get('main', 'database_uri')
         config.uploads_path = path.abspath(parser.get('main', 'uploads_path'))
         config.max_size = parser.getint('main', 'max_size')
+        config.secret_key = parser.get('main', 'secret_key', raw=True)
+        config.cookie_name = parser.get('main', 'cookie_name')
+        self.config = config
 
         if not path.isdir(config.uploads_path):
             makedirs(config.uploads_path)
@@ -86,8 +93,9 @@ class Screener(object):
         # current context and instanciating the database session.
         self.bind_to_context()
         request = Request(environ)
-        request.bind_to_context()
         request.config = config
+        request.bind_to_context()
+        self.session = session()
 
         self.url_adapter = url_map.bind_to_environ(environ)
 
@@ -101,8 +109,15 @@ class Screener(object):
         except HTTPException, e:
             response = e.get_response(environ)
 
+        if request.session.should_save:
+            max_age = 60 * 60 * 24 * 31
+            expires = time() + max_age
+            request.session.save_cookie(response, config.cookie_name,
+                                        max_age=max_age, expires=expires,
+                                        session_expires=expires)
+
         return ClosingIterator(response(environ, start_response),
-                               session.remove)
+                               [local_manager.cleanup, session.remove])
 
     def __call__(self, environ, start_response):
         """Just forward a WSGI call to the first internal middleware."""

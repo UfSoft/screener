@@ -53,6 +53,7 @@ div.contents {
 
 
 .form input { background-color: #fff; padding: 2px 5px; }
+.form input[type="checkbox"] { background-color: #5d7685; }
 .form { margin: 30px; }
 .form legend {
   margin-left: 25px;
@@ -62,6 +63,36 @@ div.contents {
 
 }
 .form input[type="submit"] { background-color: #5d7685; color: #fff; }
+.form table { width: 100%; margin-bottom: 15px; }
+.form table tr.header {
+  background-image: url(imgs/header.png);
+  background-position: bottom;
+  height: 45px;
+  vertical-align: top;
+  padding: 0 auto 0 auto;
+}
+.form table tr.header th { text-align: center; }
 .form table tr th { text-align: right; }
 .form table tr td { text-align: left; }
+.form table tr td.help {
+  font-size: 60%; text-align: center; font-style: italic;
+  padding-top: 15px; }
 div.buttons { margin-top: 20px; }
+
+
+.jquery-checkbox {
+  display: inline;
+  font-size: 24px;
+  line-height: 24px;
+  cursor: pointer;
+  cursor: hand;
+}
+.jquery-checkbox .mark {display: inline;}
+.jquery-checkbox img { vertical-align: middle; width: 22px; height: 21px; }
+.jquery-checkbox img { background: transparent url(imgs/checkboxes.png) no-repeat; }
+.jquery-checkbox img { background-position: 0px 0px; }
+.jquery-checkbox-hover img { background-position: 0px -21px; }
+.jquery-checkbox-checked img { background-position: 0px -43px; }
+.jquery-checkbox-checked .jquery-checkbox-hover img { background-position: 0px -43px; }
+.jquery-checkbox-disabled img{ background-position: 0px -64px; }
+.jquery-checkbox-checked .jquery-checkbox-disabled img{ background-position: 0px -85px; }

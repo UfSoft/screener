@@ -6,27 +6,56 @@
     <title>Upload</title>
       <script type="text/javascript" src="${shared_url('js/jquery.js')}" />
       <script type="text/javascript" src="${shared_url('js/jquery.filestyle.js')}" />
+      <script type="text/javascript" src="${shared_url('js/jquery.checkbox.js')}" />
   </head>
   <body>
     <fieldset class="form">
       <legend>Upload New File</legend>
       <form  action="" method="POST" id="UploadForm" enctype="multipart/form-data">
         <table>
+          <tr class="header"><th class="header" colspan="2">Category</th></tr>
           <tr>
-            <th><label for="category">Category:</label></th>
-            <td><input type="text" name="category"/></td>
+            <th><label for="category_name">Name:</label></th>
+            <td><input type="text" name="category_name"/></td>
           </tr>
+          <tr>
+            <th><label for="category_description">Description:</label></th>
+            <td><input type="text" size="60" name="category_description"/></td>
+          </tr>
+          <tr>
+            <th><label for="category_private">Private:</label></th>
+            <td>
+              <input type="checkbox" name="category_private" value="yes"/>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" class="help">
+              If a category is private, a random string will be assigned as
+              it's name. You're required to remember that random string in
+              order to see the category again.
+            </td>
+          </tr>
+        </table>
+        <table>
+          <tr class="header"><th colspan="2">Image</th></tr>
           <tr>
             <th><label for="description">Description:</label></th>
             <td><input type="text" size="60" name="description"/></td>
           </tr>
           <tr>
-            <th><label for="secret">Secret:</label></th>
-            <td><input type="password" name="secret"/></td>
-          </tr>
-          <tr>
             <th><label for="uploaded_file">Image:</label></th>
             <td><input type="file" name="uploaded_file"/></td>
+          </tr>
+          <tr>
+            <th><label for="private">Private:</label></th>
+            <td><input type="checkbox" name="private" value="yes"/></td>
+          </tr>
+          <tr>
+            <td colspan="2" class="help">
+              If an upload is private, a random string will be assigned as
+              it's ID. You're required to remember that random string in
+              order to see the image again.
+            </td>
           </tr>
         </table>
         <div class="error">${ error }</div>
@@ -42,6 +71,10 @@
           imageheight : 22,
           imagewidth : 100,
           width : 250
+        });
+        $("input[type=checkbox]").checkbox({
+          cls:'jquery-checkbox',
+          empty: "${ shared_url('imgs/empty.png') }"
         });
       });
     </script>

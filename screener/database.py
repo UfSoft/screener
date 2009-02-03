@@ -8,7 +8,7 @@
 
 from datetime import datetime
 from sqlalchemy import (Table, Column, Integer, String, DateTime, ForeignKey,
-                        MetaData, join)
+                        MetaData, join, Boolean)
 
 from sqlalchemy.orm import relation, create_session, scoped_session, mapper
 from screener.utils import application, local_manager
@@ -24,23 +24,26 @@ def new_db_session():
     raises an exception.
     """
     return create_session(application.database_engine, autoflush=True,
-                          transactional=True)
+                          autocommit=True)
 
 # and create a new global session factory.  Calling this object gives
 # you the current active session
 session = scoped_session(new_db_session, local_manager.get_ident)
 
 category_table = Table('categories', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('name', String, nullable=False),
+    Column('name', String, primary_key=True),
     Column('stamp', DateTime, default=datetime.utcnow()),
+    Column('description', String),
     Column('secret', String),
+    Column('private', Boolean, default=False)
 )
 
 image_table = Table('images', metadata,
     Column('id', Integer, primary_key=True),
-    Column('filename', String, nullable=False),
+    Column('filepath', String, nullable=False),
     Column('stamp', DateTime, default=datetime.utcnow()),
-    Column('description', String),
+    Column('description', String, default=u''),
     Column('secret', String),
+    Column('private', Boolean, default=False),
+    Column('category_name', None, ForeignKey('categories.name'))
 )
