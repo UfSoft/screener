@@ -1,0 +1,24 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="layout.html" />
+  <head>
+    <title>Categories</title>
+      <script type="text/javascript" src="${shared_url('js/jquery.js')}" />
+      <script type="text/javascript" src="${shared_url('js/cvi_text_lib.js')}" />
+      <script type="text/javascript" src="${shared_url('js/jquery.slided.js')}" />
+  </head>
+  <body>
+  <py:for each="category in categories">
+    <div class="frame" py:with="image=category.random">
+      <a href="${url_for('category', category=category)}" py:choose="">
+        <img class="slided ibgcolor5d7685 itxtalt itxttitle"
+             alt="${ category.name }" title="${ category.name }"
+             src="${ thumb_url(image) }"
+             py:when="image is not None"/>
+        <span py:when="image is None">$category.name - $category.description</span>
+      </a>
+    </div>
+  </py:for>
+  </body>
+</html>

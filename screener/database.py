@@ -10,7 +10,7 @@ from datetime import datetime
 from sqlalchemy import (Table, Column, Integer, String, DateTime, ForeignKey,
                         MetaData, join, Boolean)
 
-from sqlalchemy.orm import relation, create_session, scoped_session, mapper
+from sqlalchemy.orm import create_session, scoped_session
 from screener.utils import application, local_manager
 
 metadata = MetaData()
@@ -24,11 +24,11 @@ def new_db_session():
     raises an exception.
     """
     return create_session(application.database_engine, autoflush=True,
-                          autocommit=True)
+                          autocommit=False)
 
 # and create a new global session factory.  Calling this object gives
 # you the current active session
-session = scoped_session(new_db_session, local_manager.get_ident)
+session = scoped_session(lambda: new_db_session(), local_manager.get_ident)
 
 category_table = Table('categories', metadata,
     Column('name', String, primary_key=True),

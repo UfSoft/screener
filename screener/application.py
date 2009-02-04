@@ -21,6 +21,8 @@ from screener.utils import (Request, Response, local, local_manager,
 from screener.utils.crypto import gen_secret_key
 from screener.urls import url_map, handlers
 
+from genshi.core import Stream
+
 #: path to shared data
 SHARED_DATA = path.join(path.dirname(__file__), 'shared')
 
@@ -40,7 +42,7 @@ class Screener(object):
         # reference to the `Screener` object.
         self._dispatch = SharedDataMiddleware(self.dispatch_request, {
             '/shared':     SHARED_DATA,
-            '/temp':       path.join(config.uploads_path, 'temp')
+            '/images':       path.join(config.uploads_path)
         })
 
         # free the context locals at the end of the request
@@ -97,13 +99,20 @@ class Screener(object):
         request.bind_to_context()
         self.session = session()
 
-        self.url_adapter = url_map.bind_to_environ(environ)
 
+
+        self.url_adapter = url_map.bind_to_environ(environ)
         try:
             endpoint, params = self.url_adapter.match()
+            request.endpoint = endpoint
             action = handlers[endpoint]
             response = action(request, **params)
+            print type(response)
+            if isinstance(response, Stream):
+                response = Response(response)
         except (KeyError, NotFound), e:
+            #request.endpoint = ''
+            raise
             response = Response(generate_template('404.html'))
             response.status_code = 404
         except HTTPException, e:

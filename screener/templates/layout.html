@@ -9,14 +9,26 @@
       ${select('*[local-name()!="title"]')}
     </head>
   </py:match>
+  <py:def function="navigation(endpoint, title, first=False, **kwargs)"
+          py:with="match = (request.endpoint==endpoint) or
+                           (request.endpoint=='/' and endpoint=='upload')">
+    <li class="${first and 'first' or None} ${match and 'active' or None}">
+      <a href="${ url_for(endpoint, **kwargs) }" py:strip="match">${ title }</a>
+    </li>
+  </py:def>
   <py:match path="body" once="true">
     <body py:attrs="select('@*')">
       <div class="bodywrapper">
         <div class="header">
           <span class="copyright">Screener &copy; 2009 &mdash; UfSoft.org</span>
-          <ul>
-            <li><a href="${url_for('upload')}">Upload</a></li>
-            <li class="first"><a href="${url_for('index')}">Home</a></li>
+          <ul class="nav">
+            ${ navigation('categories', 'Categories') }
+            ${ navigation('upload', 'Upload', first=request.endpoint!='category') }
+            <py:if test="request.endpoint == 'category'">
+              ${ navigation('upload', 'Upload To %s' % category.name,
+                            category=category,
+                            first=True) }
+            </py:if>
           </ul>
         </div>
         <div class="contents">

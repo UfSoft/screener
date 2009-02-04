@@ -1,0 +1,34 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="layout.html" />
+  <head>
+    <title>${ category.name }</title>
+      <script type="text/javascript" src="${shared_url('js/jquery.js')}" />
+      <script type="text/javascript" src="${shared_url('js/cvi_text_lib.js')}" />
+      <script type="text/javascript" src="${shared_url('js/jquery.slided.js')}" />
+  </head>
+  <body>
+  <h1 py:if="not category.description">$category.name</h1>
+  <h1 py:if="category.description">$category.name &mdash; $category.description</h1>
+  <py:for each="image in category.images">
+    <div class="frame">
+      <a href="${url_for('show', image=image)}" rel="imagebox-1">
+        <img class="slided ibgcolor5d7685 itxtalt"
+             alt="${ image.filename }"
+             title="${ image.description or image.filename }"
+             src="${thumb_url(image)}"/>
+      </a>
+    </div>
+  </py:for>
+  <script type="text/javascript">
+    $(document).ready( function() {
+      jQuery.ImageBox.init({
+        closeHTML: '&lt;img src="' + '${ shared_url("imgs/imgbox-close.gif") }' + '"/&gt;',
+        loaderSRC: '${ shared_url("imgs/loading.gif") }',
+        overlayOpacity: 0.5
+      });
+    });
+  </script>
+  </body>
+</html>

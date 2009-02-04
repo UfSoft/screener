@@ -9,36 +9,54 @@
 from PIL import Image as PImage
 from os import remove, makedirs, removedirs
 from os.path import join, splitext, isfile, isdir
-from screener.utils import Response, generate_template
+from screener.utils import generate_template
 from tempfile import mktemp
 
 from screener.database import session
 from screener.models import Category, Image
+from screener.utils import url_for, Response
 
-def categories(request, category=None):
-    pass
+from werkzeug.exceptions import NotFound
+from werkzeug.utils import redirect
+from werkzeug.http import parse_etags, remove_entity_headers
+from mimetypes import guess_type
+
+from stat import ST_SIZE, ST_MTIME
+from time import asctime, gmtime, time
+
+def categories_list(request):
+    categories = Category.query.filter(Category.private==False).all()
+    return generate_template('category_list.html', categories=categories)
+
+def category_list(request, category=None):
+    if not category:
+        raise NotFound()
+    return generate_template('category.html', category=category)
 
 def invalid(request):
-    return Response(generate_template('index.html'))
+    return generate_template('index.html')
 
 def index(request):
-    return Response(generate_template('index.html'))
+    return generate_template('index.html')
 
 
-def upload(request):
+def upload(request, category=None):
+    if category:
+        print category.name
+        print category.secret
 
     if request.method == 'POST':
         uploaded_file = request.files['uploaded_file']
         if not uploaded_file:
-            return Response(generate_template('upload.html',
-                                              error="No file uploaded",
-                                              formfill=request.values))
+            return generate_template('upload.html', error="No file uploaded",
+                                     formfill=request.values,
+                                     category=category)
         category_name = request.values.get('category_name', 'uncategorized')
         if len(category_name.split()) > 1:
             print category_name, category_name.split()
-            return Response(generate_template('upload.html',
-                error="Category names cannot contain spaces",
-                formfill=request.values))
+            return generate_template(
+                'upload.html', error="Category names cannot contain spaces",
+                formfill=request.values, category=category)
         category = session.query(Category).get(category_name)
         if not category:
             category_description = request.values.get('category_description')
@@ -52,7 +70,6 @@ def upload(request):
         if not isdir(category_path):
             makedirs(category_path)
 
-
         filename, ext = splitext(uploaded_file.filename)
         tempfile_path = mktemp()
         tempfile = open(tempfile_path, 'wb')
@@ -60,9 +77,9 @@ def upload(request):
             if tempfile.tell() > request.config.max_size:
                 tempfile.close()
                 remove(tempfile_path)
-                return Response(generate_template('upload.html',
-                                                  error="File too big.",
-                                                  formfill=request.values))
+                return generate_template('upload.html', error="File too big.",
+                                         formfill=request.values,
+                                         category=category)
             data = uploaded_file.read(2048)
             if not data:
                 break
@@ -73,14 +90,19 @@ def upload(request):
             image = PImage.open(tempfile_path)
         except IOError:
             remove(tempfile_path)
-            return Response(generate_template('upload.html',
-                                              error="Invalid Image File",
-                                              formfill=request.values))
+            return generate_template('upload.html', error="Invalid Image File",
+                                     formfill=request.values,
+                                     category=category)
 
         try:
             image_path = join(category_path, filename + ext)
-            image.save(image_path, ext[1:])
             image_width, image_height = image.size
+            image.save(image_path, ext[1:])
+            resized_path = join(category_path, filename+ '.resized' + ext)
+            if image_width > 800:
+                image.thumbnail((800, 800), PImage.ANTIALIAS)
+            image.save(resized_path, ext[1:])
+            image.save(image_path, ext[1:])
             if image_width > 200 or image_height > 200:
                 image.thumbnail((200, 200), PImage.ANTIALIAS)
             thumb_path = join(category_path, filename+ '.thumbnail' + ext)
@@ -95,9 +117,9 @@ def upload(request):
             except OSError:
                 # Directory not empty
                 pass
-            return Response(generate_template('upload.html',
-                                              error="Failed Save Image",
-                                              formfill=request.values))
+            return generate_template('upload.html', error="Failed Save Image",
+                                     formfill=request.values,
+                                     category=category)
         finally:
             remove(tempfile_path)
 
@@ -106,6 +128,95 @@ def upload(request):
         dbimage = Image(image_path, description, secret)
         dbimage.category = category
         session.commit()
+        if request.values.get('multiple'):
+            if category.private:
+                return redirect(url_for('upload', secret=category.secret), 303)
+            else:
+                return redirect(url_for('upload', category=category.name), 303)
+        elif category.private:
+            return redirect(url_for('category', secret=category.secret), 303)
+        else:
+            return redirect(url_for('category', category=category.name), 303)
 
-    return Response(generate_template('upload.html'))
 
+    return generate_template('upload.html', category=category)
+
+def show_image(request, image=None):
+    return generate_template('image.html', image=image)
+
+def serve_image(request, image=None):
+    print 'should have served image?', image
+
+    if request.endpoint == 'thumbs':
+        content_type, content_encoding = guess_type(image.thumbpath)
+        print content_type, content_encoding
+        import os
+        print os.stat(image.thumbpath)
+        imgfd = open(image.thumbpath, 'rb')
+        fstat = os.fstat(imgfd.fileno())
+        size = fstat[ST_SIZE]
+        mtime = fstat[ST_MTIME]
+        expiry = asctime(gmtime(time() + 3600))
+
+        headers = [
+            ('Cache-Control', 'public'),
+            ('Content-Length', str(size)),
+            ('Expires', expiry),
+            ('ETag', image.etag)
+        ]
+        print 'HEADERS', headers, request.headers.get('HTTP_IF_NONE_MATCH')
+        if parse_etags(request.headers.get('HTTP_IF_NONE_MATCH')) \
+                                                        .contains(image.etag):
+            remove_entity_headers(headers)
+            return Response('', 304, headers=headers)
+
+        print type(request.headers)
+
+        data = imgfd.read()
+
+    elif request.endpoint == 'images':
+        content_type, content_encoding = guess_type(image.filepath)
+        print content_type, content_encoding
+        import os
+        print os.stat(image.filepath)
+        imgfd = open(image.filepath, 'rb')
+        fstat = os.fstat(imgfd.fileno())
+        size = fstat[ST_SIZE]
+        mtime = fstat[ST_MTIME]
+        expiry = asctime(gmtime(time() + 3600))
+
+        headers = [
+            ('Cache-Control', 'public'),
+            ('Content-Length', str(size)),
+            ('Expires', expiry),
+            ('ETag', image.etag)
+        ]
+        print 'HEADERS', headers, request.headers.get('HTTP_IF_NONE_MATCH')
+        print 1, request.if_match
+        print 2, request.if_none_match, type(request.if_none_match)
+        print 3, request.cache_control, type(request.cache_control)
+        print 4, request.if_modified_since
+        if request.if_none_match.contains(image.etag):
+            remove_entity_headers(headers)
+            return Response('', 304, headers=headers)
+
+        print type(request.headers)
+
+        data = imgfd.read()
+    else:
+        raise NotFound
+
+    return Response(data, content_type=content_type, headers=headers)
+
+def serve_thumbs(request, image=None):
+    print 'should have served thumb?', image
+    if request.endpoint == 'thumbs':
+        content_type, content_encoding = guess_type(image.thumbpath)
+        data = open(image.thumbpath, 'rb').read()
+    elif request.endpoint == 'images':
+        content_type, content_encoding = guess_type(image.filepath)
+        data = open(image.filepath, 'rb').read()
+    else:
+        raise NotFound
+
+    return Response(data, content_type=content_type)

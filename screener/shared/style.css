@@ -25,17 +25,17 @@ span.copyright {
   float: left;
 }
 
-div.header ul { margin: 0; padding: 2px 5px 0 0; }
-div.header ul li {
+ul.nav { margin: 0; padding: 2px 5px 0 0; }
+ul.nav li {
   display: block; float: right;
   margin-right: 5px;
   padding-left: 5px;
   border-left: 1px dashed #fff; }
-div.header ul li.first { border-left: none; }
-div.header ul li a, div.header ul li a:visited {
+ul.nav li.first { border-left: none; }
+ul.nav li a, ul.nav li a:visited {
   color: #fff; text-decoration: none;
 }
-div.header ul li a:hover { color: #2c8fc8; text-decoration: none; }
+ul.nav li.active, ul.nav li a:hover { color: #2c8fc8; text-decoration: none; }
 
 div.contents {
   margin: 0 auto 0 auto;
@@ -44,7 +44,7 @@ div.contents {
 
 .frame { float: left; padding: 10px; }
 
-.form, .form legend, .form input {
+.form, .form legend, .form input, .form button {
   background-color: #5d7685;
   -moz-border-radius: 7px;
   -webkit-border: 7px;
@@ -52,7 +52,7 @@ div.contents {
 .form { -moz-border-radius: 10px; -webkit-border: 10px; }
 
 
-.form input { background-color: #fff; padding: 2px 5px; }
+.form input, .form button { background-color: #fff; padding: 2px 5px; }
 .form input[type="checkbox"] { background-color: #5d7685; }
 .form { margin: 30px; }
 .form legend {
@@ -62,7 +62,8 @@ div.contents {
   margin-bottom: 5px;
 
 }
-.form input[type="submit"] { background-color: #5d7685; color: #fff; }
+.form input[type="submit"], .form button {
+  background-color: #5d7685; color: #fff; }
 .form table { width: 100%; margin-bottom: 15px; }
 .form table tr.header {
   background-image: url(imgs/header.png);
@@ -73,7 +74,7 @@ div.contents {
 }
 .form table tr.header th { text-align: center; }
 .form table tr th { text-align: right; }
-.form table tr td { text-align: left; }
+.form table tr td { text-align: left; width: 85%; }
 .form table tr td.help {
   font-size: 60%; text-align: center; font-style: italic;
   padding-top: 15px; }

@@ -16,19 +16,34 @@
           <tr class="header"><th class="header" colspan="2">Category</th></tr>
           <tr>
             <th><label for="category_name">Name:</label></th>
-            <td><input type="text" name="category_name"/></td>
+            <td py:choose="">
+              <input py:when="not category" type="text" name="category_name"/>
+              <span py:otherwise="">$category.name
+                <input type="hidden" name="category_name" value="${category.name}"/>
+              </span>
+            </td>
+          </tr>
+          <tr py:if="category.private">
+            <th>Secret Hash:</th>
+            <td>${ category.secret }</td>
           </tr>
           <tr>
             <th><label for="category_description">Description:</label></th>
-            <td><input type="text" size="60" name="category_description"/></td>
-          </tr>
-          <tr>
-            <th><label for="category_private">Private:</label></th>
-            <td>
-              <input type="checkbox" name="category_private" value="yes"/>
+            <td py:choose="">
+              <input py:when="not category" type="text" size="60"
+                     name="category_description"/>
+              <span py:otherwise="">$category.description</span>
             </td>
           </tr>
           <tr>
+            <th><label for="category_private">Private:</label></th>
+            <td py:choose="">
+              <input py:when="not category"
+                     type="checkbox" name="category_private" value="yes"/>
+              <span py:otherwise="">${ category.private and 'Yes' or 'No'}</span>
+            </td>
+          </tr>
+          <tr py:if="not category">
             <td colspan="2" class="help">
               If a category is private, a random string will be assigned as
               it's name. You're required to remember that random string in
@@ -60,7 +75,12 @@
         </table>
         <div class="error">${ error }</div>
         <div class="buttons">
-          <input type="submit" name="upload" value="Start Upload"/>
+          <input type="submit" name="upload" value="Upload And See Gallery"/>
+          <input type="submit" name="multiple" value="Upload And To This Form"/>
+          <a py:if="category is not None"
+             href="${ url_for('category', category=category) }">
+            <button type="button" name="view">View Gallery</button>
+          </a>
         </div>
       </form>
     </fieldset>
