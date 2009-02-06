@@ -7,7 +7,7 @@
 # ==============================================================================
 from random import choice
 from hashlib import sha1, md5
-from os.path import basename, splitext
+from os.path import basename, splitext, dirname, join
 from sqlalchemy import and_
 from datetime import datetime
 from sqlalchemy import (Column, Integer, String, DateTime, ForeignKey, Boolean,
@@ -63,28 +63,25 @@ class Image(DeclarativeBase):
 
     # Table Columns
     id            = Column(Integer, primary_key=True)
-    filename     = Column("filename", String, nullable=False)
-    extension     = Column(String(4), nullable=False)
-    mime_type     = Column(String(15))
+    filename      = Column("filename", String, nullable=False)
+    path          = Column("path", String, nullable=False)
+    mimetype      = Column(String(15))
     stamp         = Column(DateTime, default=datetime.utcnow())
     description   = Column(String, default=u'')
     secret        = Column(String)
     private       = Column(Boolean, default=False)
     category_name = Column(None, ForeignKey('categories.name'))
 
-    # ForeignKey Association
-    _image        = relation(ImageData, backref="image", uselist=False,
-                             cascade="all, delete, delete-orphan")
     category      = None # Associated elsewhere
 
     # Query Object
     query = session.query_property(Query)
 
-    def __init__(self, filename, extension, mime_type, description=None,
+    def __init__(self, filepath, mimetype, description=None,
                  private=False):
-        self.filename = filename
-        self.extension = extension
-        self.mime_type = mime_type
+        self.filename = basename(filepath)
+        self.path = dirname(filepath)
+        self.mimetype = mimetype
         self.description = description
         self.private = private
         self.stamp = datetime.utcnow()
@@ -93,9 +90,6 @@ class Image(DeclarativeBase):
             secret.update(filename)
             secret.update(str(self.stamp))
             self.secret = secret.hexdigest()
-
-    def add_image_data(self, original, resized, thumbnail):
-        self._image = ImageData(original, resized, thumbnail)
 
     def __url__(self, image_type):
         print 'grabbing url of type', image_type
@@ -109,50 +103,52 @@ class Image(DeclarativeBase):
             return url_for('show', image=self.private and self.secret or self.image_name)
 
     @property
+    def _filename_no_extension(self):
+        if not hasattr(self, '__filename'):
+            self.__filename, self.extension = splitext(self.filename)
+        return self.__filename
+
+    @property
     def image_name(self):
         if self.private:
             return self.secret
-        return "%s.%s" % (self.filename, self.extension)
+        return self.filename
 
     @property
     def thumb_name(self):
         if self.private:
             return self.secret
-        return "%s.thumbnail.%s" % (self.filename, self.extension)
+        return "%s.thumbnail%s" % (self._filename_no_extension, self.extension)
 
     @property
     def resized_name(self):
         if self.private:
             return self.secret
-        return "%s.resized.%s" % (self.filename, self.extension)
+        return "%s.resized%s" % (self._filename_no_extension, self.extension)
+
+    @property
+    def image_path(self):
+        if self.private:
+            return join(self.path, self.secret)
+        return join(self.path, self.image_name)
+
+    @property
+    def thumb_path(self):
+        if self.private:
+            return join(self.path, self.secret)
+        return join(self.path, self.thumb_name)
+
+    @property
+    def resized_path(self):
+        if self.private:
+            return join(self.path, self.secret)
+        return join(self.path, self.resized_name)
 
     @property
     def etag(self):
         etag = md5(self.filename)
         etag.update(str(self.stamp))
         return etag.hexdigest()
-
-    @property
-    def format(self):
-        return self.extension
-
-    @property
-    def image(self):
-        return getattr(self._image, 'original')
-
-    @property
-    def resized(self):
-#        print "grabbing resized",
-        resized = getattr(self._image, 'resized')
-#        print resized,
-        if not resized:
-#            print self.image
-            return self.image
-        return resized
-
-    @property
-    def thumb(self):
-        return getattr(self._image, 'thumbnail')
 
 
 class Category(DeclarativeBase):

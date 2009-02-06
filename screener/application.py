@@ -58,6 +58,7 @@ class Screener(object):
             parser.add_section('main')
             parser.set('main', 'database_uri', 'sqlite:///%(here)s/database.db')
             parser.set('main', 'database_echo', 'false')
+            parser.set('main', 'uploads_path', '%(here)s/uploads')
             parser.set('main', 'max_size', '10485760') # 10 Mb
             parser.set('main', 'secret_key', gen_secret_key())
             parser.set('main', 'cookie_name', 'screener_cookie')
@@ -68,10 +69,14 @@ class Screener(object):
 
         config.database_uri = parser.get('main', 'database_uri')
         config.database_echo = parser.getboolean('main', 'database_echo')
+        config.uploads_path = path.abspath(parser.get('main', 'uploads_path'))
         config.max_size = parser.getint('main', 'max_size')
         config.secret_key = parser.get('main', 'secret_key', raw=True)
         config.cookie_name = parser.get('main', 'cookie_name')
         self.config = config
+
+        if not path.isdir(config.uploads_path):
+            makedirs(config.uploads_path)
 
     def init_database(self):
         """Called from the management script to generate the db."""

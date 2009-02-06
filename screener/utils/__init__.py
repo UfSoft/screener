@@ -38,10 +38,6 @@ def generate_template(template_name, **context):
     context.update(
         url_for=url_for,
         shared_url=shared_url,
-        thumb_url=thumb_url,
-        image_url=image_url,
-        resized_url=resized_url,
-        category_url=category_url,
         format_datetime=format_datetime,
         request=request
     )

@@ -7,7 +7,7 @@
 # ==============================================================================
 
 from PIL import Image as PImage
-from os import remove, makedirs, removedirs, link
+from os import remove, makedirs, removedirs, link, fstat
 from os.path import join, splitext, isfile, isdir
 from screener.utils import generate_template
 from tempfile import mktemp
@@ -23,7 +23,6 @@ from mimetypes import guess_type
 from stat import ST_SIZE, ST_MTIME
 from time import asctime, gmtime, time
 
-from cStringIO import StringIO
 
 def categories_list(request):
     categories = Category.query.filter(Category.private==False).all()
@@ -65,13 +64,13 @@ def upload(request, category=None):
                                 category_private)
             session.add(category)
 
-#        category_path = join(request.config.uploads_path, category.name)
-#        if not isdir(category_path):
-#            makedirs(category_path)
+        category_path = join(request.config.uploads_path, category.name)
+        if not isdir(category_path):
+            makedirs(category_path)
 
         filename, ext = splitext(uploaded_file.filename)
         extension = ext[1:]
-        mime_type, _ = guess_type(uploaded_file.filename)
+        mimetype, _ = guess_type(uploaded_file.filename)
 
         tempfile_path = mktemp()
         tempfile = open(tempfile_path, 'wb')
@@ -99,26 +98,34 @@ def upload(request, category=None):
         try:
             image_width, image_height = image.size
 
+            image_path = join(category_path, filename + ext)
             # Original Image
-            original = StringIO()
-            image.save(original, extension)
-            original.seek(0)
+            image.save(image_path, extension)
 
             # Resized version
-            resized = StringIO()
+            resized_path = join(category_path, filename + '.resized' + ext)
             if image_width > 1100:
                 image.thumbnail((1100, 1100), PImage.ANTIALIAS)
-                image.save(resized, extension)
-                resized.seek(0)
+                image.save(resized_path, extension)
+            else:
+                link(image_path, resized_path)
 
             # Thumbnailed Version
-            thumbnail = StringIO()
+            thumbnail_path = join(category_path, filename + '.thumbnail' + ext)
             if image_width > 200 or image_height > 200:
                 image.thumbnail((200, 200), PImage.ANTIALIAS)
-                image.save(thumbnail, extension)
-                thumbnail.seek(0)
+                image.save(thumbnail_path, extension)
+            else:
+                link(image_path, thumbnail_path)
         except IOError:
-            pass
+            for path in (image_path, resized_path, thumbnail_path):
+                if isfile(path):
+                    remove(path)
+            try:
+                removedirs(category_path)
+            except OSError:
+                # Directory not empty
+                pass
             return generate_template('upload.html', error="Failed Save Image",
                                      formfill=request.values,
                                      category=category)
@@ -127,15 +134,15 @@ def upload(request, category=None):
 
         description = request.values.get('description')
         secret = request.values.get('secret')
-        image = Image(filename, extension, mime_type, description, secret)
-        image.add_image_data(original, resized, thumbnail)
+        image = Image(image_path, mimetype, description, secret)
         image.category = category
         session.commit()
         if request.values.get('multiple'):
-            return redirect(url_for('upload', category=category), 303)
+            return redirect(
+                url_for('upload', category=category.private and category.secret
+                                           or category.name), 303)
         else:
             return redirect(url_for(category), 303)
-
 
     return generate_template('upload.html', category=category)
 
@@ -146,29 +153,31 @@ def show_image(request, image=None):
         image = Image.query.filter(Image.secret==image).first()
     else:
         image = Image.query.filter(
-            or_(Image.filename==filename,
-                Image.filename==filename[:-len('.thumbnail')],
-                Image.filename==filename[:-len('.resized')])).first()
-#    print image
+            or_(Image.filename==filename+extension,
+                Image.filename==filename[:-len('.thumbnail')]+extension,
+                Image.filename==filename[:-len('.resized')]+extension)).first()
+    if not image:
+        raise NotFound("Requested image was not found")
     return generate_template('image.html', image=image)
 
 def serve_image(request, image=None):
-#    print 'should have served image?', image, type(image), request.endpoint
+    print 'should have served image?', image, type(image), request.endpoint
 
     filename, extension = splitext(image)
     if not extension:
         loaded = Image.query.filter(Image.secret==image).first()
     else:
         loaded = Image.query.filter(
-            or_(Image.filename==filename,
-                Image.filename==filename[:-len('.thumbnail')],
-                Image.filename==filename[:-len('.resized')])).first()
+            or_(Image.filename==filename+extension,
+                Image.filename==filename[:-len('.thumbnail')]+extension,
+                Image.filename==filename[:-len('.resized')]+extension)).first()
     if not loaded:
         raise NotFound("Image not found")
 
-    content_type = loaded.mime_type
-    picture = getattr(loaded, request.endpoint)
-    size = len(picture)
+    content_type = loaded.mimetype
+    picture = open(getattr(loaded, "%s_path" % request.endpoint), 'rb')
+
+    size = fstat(picture.fileno())[ST_SIZE]
     expiry = loaded.stamp.strftime("%a %b %d %H:%M:%S %Y")
 
     headers = [
@@ -184,4 +193,4 @@ def serve_image(request, image=None):
         return Response('', 304, headers=headers)
 
 #    print type(request.headers)
-    return Response(picture, content_type=content_type, headers=headers)
+    return Response(picture.read(), content_type=content_type, headers=headers)
