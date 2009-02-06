@@ -40,6 +40,8 @@ def generate_template(template_name, **context):
         shared_url=shared_url,
         thumb_url=thumb_url,
         image_url=image_url,
+        resized_url=resized_url,
+        category_url=category_url,
         format_datetime=format_datetime,
         request=request
     )
@@ -48,20 +50,14 @@ def generate_template(template_name, **context):
         return stream | HTMLFormFiller(data=formfill)
     return stream
 
-def url_for(endpoint, **kwargs):
+def url_for(endpoint, *args, **kwargs):
+    if hasattr(endpoint, '__url__'):
+        return endpoint.__url__(*args, **kwargs)
     return application.url_adapter.build(endpoint, kwargs)
 
 def shared_url(filename):
     """Returns a URL to a shared resource."""
     return url_for('shared', file=filename)
-
-def thumb_url(image):
-    """Returns a URL to a shared resource."""
-    return url_for('thumbs', image=image)
-
-def image_url(image):
-    """Returns a URL to a shared resource."""
-    return url_for('images', image=image)
 
 def format_datetime(obj):
     """Format a datetime object."""

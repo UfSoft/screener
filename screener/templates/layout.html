@@ -26,7 +26,7 @@
             ${ navigation('upload', 'Upload', first=request.endpoint!='category') }
             <py:if test="request.endpoint == 'category'">
               ${ navigation('upload', 'Upload To %s' % category.name,
-                            category=category,
+                            category=category.private and category.secret or category.name,
                             first=True) }
             </py:if>
           </ul>

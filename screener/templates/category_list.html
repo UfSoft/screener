@@ -11,10 +11,10 @@
   <body>
   <py:for each="category in categories">
     <div class="frame" py:with="image=category.random">
-      <a href="${url_for('category', category=category)}" py:choose="">
+      <a href="${ url_for(category) }" py:choose="">
         <img class="slided ibgcolor5d7685 itxtalt itxttitle"
              alt="${ category.name }" title="${ category.name }"
-             src="${ thumb_url(image) }"
+             src="${ url_for(image, 'thumb') }"
              py:when="image is not None"/>
         <span py:when="image is None">$category.name - $category.description</span>
       </a>

@@ -12,12 +12,12 @@ from os import path, makedirs
 from time import time
 from types import ModuleType
 from sqlalchemy import create_engine
-from werkzeug.utils import ClosingIterator, SharedDataMiddleware, redirect
+from werkzeug.utils import ClosingIterator, SharedDataMiddleware
 from werkzeug.exceptions import HTTPException, NotFound
 
-from screener.database import metadata, session
+from screener.database import DeclarativeBase, session
 from screener.utils import (Request, Response, local, local_manager,
-                            generate_template, url_for)
+                            generate_template)
 from screener.utils.crypto import gen_secret_key
 from screener.urls import url_map, handlers
 
@@ -35,14 +35,14 @@ class Screener(object):
         self.instance_folder = path.abspath(instance_folder)
         self.url_map = url_map
         self.setup_screener()
-        self.database_engine = create_engine(config.database_uri)
+        self.database_engine = create_engine(config.database_uri,
+                                             echo=config.database_echo)
 
         # apply our middlewares.   we apply the middlewares *inside* the
         # application and not outside of it so that we never lose the
         # reference to the `Screener` object.
         self._dispatch = SharedDataMiddleware(self.dispatch_request, {
-            '/shared':     SHARED_DATA,
-            '/images':       path.join(config.uploads_path)
+            '/shared':     SHARED_DATA
         })
 
         # free the context locals at the end of the request
@@ -57,7 +57,7 @@ class Screener(object):
         if not path.isfile(config_file):
             parser.add_section('main')
             parser.set('main', 'database_uri', 'sqlite:///%(here)s/database.db')
-            parser.set('main', 'uploads_path', '%(here)s/uploads')
+            parser.set('main', 'database_echo', 'false')
             parser.set('main', 'max_size', '10485760') # 10 Mb
             parser.set('main', 'secret_key', gen_secret_key())
             parser.set('main', 'cookie_name', 'screener_cookie')
@@ -67,19 +67,15 @@ class Screener(object):
         parser.set('main', 'here', self.instance_folder)
 
         config.database_uri = parser.get('main', 'database_uri')
-        config.uploads_path = path.abspath(parser.get('main', 'uploads_path'))
+        config.database_echo = parser.getboolean('main', 'database_echo')
         config.max_size = parser.getint('main', 'max_size')
         config.secret_key = parser.get('main', 'secret_key', raw=True)
         config.cookie_name = parser.get('main', 'cookie_name')
         self.config = config
 
-        if not path.isdir(config.uploads_path):
-            makedirs(config.uploads_path)
-
-
     def init_database(self):
         """Called from the management script to generate the db."""
-        metadata.create_all(bind=self.database_engine)
+        DeclarativeBase.metadata.create_all(bind=self.database_engine)
 
     def bind_to_context(self):
         """
@@ -97,9 +93,6 @@ class Screener(object):
         request = Request(environ)
         request.config = config
         request.bind_to_context()
-        self.session = session()
-
-
 
         self.url_adapter = url_map.bind_to_environ(environ)
         try:
@@ -107,12 +100,17 @@ class Screener(object):
             request.endpoint = endpoint
             action = handlers[endpoint]
             response = action(request, **params)
-            print type(response)
+#            print type(response)
             if isinstance(response, Stream):
                 response = Response(response)
-        except (KeyError, NotFound), e:
-            #request.endpoint = ''
+        except NotFound, error:
+            response = Response(generate_template('404.html', error=error))
+            response.status_code = 404
+            print error
             raise
+        except KeyError, e:
+            #request.endpoint = ''
+            raise e
             response = Response(generate_template('404.html'))
             response.status_code = 404
         except HTTPException, e:
