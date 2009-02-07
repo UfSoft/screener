@@ -13,6 +13,7 @@ from genshi.template import TemplateLoader
 from werkzeug.wrappers import BaseRequest, BaseResponse, ETagRequestMixin
 from werkzeug.local import Local, LocalManager
 from werkzeug.contrib.securecookie import SecureCookie
+from werkzeug.exceptions import NotFound
 
 __all__ = ['local', 'local_manager', 'request', 'application',
            'generate_template', 'url_for', 'shared_url', 'format_datetime',
@@ -31,6 +32,10 @@ local = Local()
 local_manager = LocalManager([local])
 request = local('request')
 application = local('application')
+
+
+class ImageAbuseReported(NotFound):
+    pass
 
 def generate_template(template_name, **context):
     """Load and generate a template."""

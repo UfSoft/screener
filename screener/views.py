@@ -12,8 +12,9 @@ from os.path import join, splitext, isfile, isdir, dirname, basename
 from screener.utils import generate_template
 from tempfile import mktemp
 
+
 from screener.database import session, Category, Image, and_, or_
-from screener.utils import url_for, Response
+from screener.utils import url_for, Response, ImageAbuseReported
 
 from werkzeug.exceptions import NotFound
 from werkzeug.utils import redirect
@@ -25,13 +26,10 @@ from time import asctime, gmtime, time
 
 
 def categories_list(request):
-    print 'secrets', request.session.get('secrets')
     categories = Category.query.filter(
         or_(Category.private==False,
             Category.secret.in_(request.session.get('secrets', [])))
     ).all()
-    for c in categories:
-        print c, c.private, c.secret
     return generate_template('category_list.html', categories=categories)
 
 def category_list(request, category=None):
@@ -189,6 +187,8 @@ def show_image(request, image=None):
                                 filename[:-len('.resized')]+extension])).first()
     if not image:
         raise NotFound("Requested image was not found")
+    if image.abuse_reported:
+        raise ImageAbuseReported
     return generate_template('image.html', image=image)
 
 def serve_image(request, image=None):
@@ -204,6 +204,10 @@ def serve_image(request, image=None):
                 Image.filename==filename[:-len('.resized')]+extension)).first()
     if not loaded:
         raise NotFound("Image not found")
+
+
+    if loaded.abuse_reported:
+        raise ImageAbuseReported
 
     content_type = loaded.mimetype
     picture = open(getattr(loaded, "%s_path" % request.endpoint), 'rb')

@@ -17,7 +17,7 @@ from werkzeug.exceptions import HTTPException, NotFound
 
 from screener.database import DeclarativeBase, session
 from screener.utils import (Request, Response, local, local_manager,
-                            generate_template)
+                            generate_template, ImageAbuseReported)
 from screener.utils.crypto import gen_secret_key
 from screener.urls import url_map, handlers
 
@@ -27,6 +27,7 @@ from genshi.core import Stream
 SHARED_DATA = path.join(path.dirname(__file__), 'shared')
 
 sys.modules['screener.config'] = config = ModuleType('config')
+
 
 class Screener(object):
     """Our central WSGI application."""
@@ -109,6 +110,9 @@ class Screener(object):
 #            print type(response)
             if isinstance(response, Stream):
                 response = Response(response)
+        except ImageAbuseReported:
+            response = Response(generate_template('abuse.html'))
+            response.status_code = 410 # Resource Gone or 409 Conflict?
         except NotFound, error:
             response = Response(generate_template('404.html', error=error))
             response.status_code = 404

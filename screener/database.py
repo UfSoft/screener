@@ -176,8 +176,10 @@ class Category(DeclarativeBase):
 
     def visible_images(self):
         return Image.query.filter(
-            or_(and_(Image.private==False, Image.category==self),
-                and_(Image.private==True, Image.category==self,
+            or_(and_(Image.private==False, Image.abuse_reported==False,
+                     Image.category==self),
+                and_(Image.private==True, Image.abuse_reported==False,
+                     Image.category==self,
                      Image.id.in_(local.request.session.get('secrets', [])))
             )
         ).all()
