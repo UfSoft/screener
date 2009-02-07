@@ -10,8 +10,7 @@
     </head>
   </py:match>
   <py:def function="navigation(endpoint, title, first=False, **kwargs)"
-          py:with="match = (request.endpoint==endpoint) or
-                           (request.endpoint=='/' and endpoint=='upload')">
+          py:with="match = request.endpoint==endpoint">
     <li class="${first and 'first' or None} ${match and 'active' or None}">
       <a href="${ url_for(endpoint, **kwargs) }" py:strip="match">${ title }</a>
     </li>
@@ -32,6 +31,16 @@
           </ul>
         </div>
         <div class="contents">
+          <py:if test="error">
+            <div class="message message-error">
+              ${ Markup(error) }
+            </div>
+          </py:if>
+          <py:for each="flash in request.session.pop('flashes', [])">
+            <div class="message">
+              ${ Markup(flash) }
+            </div>
+          </py:for>
           ${select('*|text()')}
         </div>
       </div>

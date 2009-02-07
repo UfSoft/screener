@@ -73,12 +73,11 @@
             </td>
           </tr>
         </table>
-        <div class="error">${ error }</div>
         <div class="buttons">
+          <input type="submit" name="multiple" value="Upload And Back To This Form"/>
           <input type="submit" name="upload" value="Upload And See Gallery"/>
-          <input type="submit" name="multiple" value="Upload And To This Form"/>
           <a py:if="category is not None"
-             href="${ url_for('category', category=category) }">
+             href="${ url_for(category) }">
             <button type="button" name="view">View Gallery</button>
           </a>
         </div>

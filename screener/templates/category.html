@@ -11,10 +11,12 @@
   <body>
   <h1 py:if="not category.description">$category.name</h1>
   <h1 py:if="category.description">$category.name &mdash; $category.description</h1>
-  <py:for each="image in category.images">
+  <py:for each="image in category.visible_images()">
     <div class="frame">
       <a href="${url_for(image, 'show')}" rel="imagebox-1">
-        <img class="slided ibgcolor5d7685 itxtalt"
+        <img class="slided ${ image.private is True
+                              and 'ibgcolorff4f00 igradientffffff '
+                              or 'ibgcolor5d7685 '}itxtalt"
              alt="${ image.filename }"
              title="${ image.description or image.filename }"
              src="${url_for(image, 'thumb')}"/>

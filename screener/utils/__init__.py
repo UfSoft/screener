@@ -65,6 +65,8 @@ class Request(BaseRequest, ETagRequestMixin):
     """
     def bind_to_context(self):
         local.request = self
+
+    def setup_cookie(self):
         self.session = SecureCookie.load_cookie(
             self, application.config.cookie_name,
             application.config.secret_key.encode('utf-8')

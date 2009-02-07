@@ -10,9 +10,10 @@
   </head>
   <body>
   <py:for each="category in categories">
-    <div class="frame" py:with="image=category.random">
+    <div class="frame${ category.private is True and ' secret' or ''}"
+         py:with="image=category.random">
       <a href="${ url_for(category) }" py:choose="">
-        <img class="slided ibgcolor5d7685 itxtalt itxttitle"
+        <img class="slided ${ category.private is True and 'ibgcolorff4f00 igradientffffff ' or 'ibgcolor5d7685 '}itxtalt itxttitle"
              alt="${ category.name }" title="${ category.name }"
              src="${ url_for(image, 'thumb') }"
              py:when="image is not None"/>

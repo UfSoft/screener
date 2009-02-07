@@ -7,8 +7,8 @@
 # ==============================================================================
 
 from PIL import Image as PImage
-from os import remove, makedirs, removedirs, link, fstat
-from os.path import join, splitext, isfile, isdir
+from os import remove, makedirs, removedirs, symlink, fstat, getcwd, chdir
+from os.path import join, splitext, isfile, isdir, dirname, basename
 from screener.utils import generate_template
 from tempfile import mktemp
 
@@ -25,7 +25,13 @@ from time import asctime, gmtime, time
 
 
 def categories_list(request):
-    categories = Category.query.filter(Category.private==False).all()
+    print 'secrets', request.session.get('secrets')
+    categories = Category.query.filter(
+        or_(Category.private==False,
+            Category.secret.in_(request.session.get('secrets', [])))
+    ).all()
+    for c in categories:
+        print c, c.private, c.secret
     return generate_template('category_list.html', categories=categories)
 
 def category_list(request, category=None):
@@ -33,6 +39,8 @@ def category_list(request, category=None):
         raise NotFound()
     category = Category.query.filter(or_(Category.name==category,
                                          Category.secret==category)).first()
+    if category is None:
+        raise NotFound()
     return generate_template('category.html', category=category)
 
 def invalid(request):
@@ -43,8 +51,9 @@ def index(request):
 
 
 def upload(request, category=None):
-    category = Category.query.filter(or_(Category.name==category,
-                                         Category.secret==category)).first()
+    if category:
+        category = Category.query.filter(or_(Category.name==category,
+                                             Category.secret==category)).first()
     if request.method == 'POST':
         uploaded_file = request.files['uploaded_file']
         if not uploaded_file:
@@ -56,20 +65,33 @@ def upload(request, category=None):
             return generate_template(
                 'upload.html', error="Category names cannot contain spaces",
                 formfill=request.values, category=category)
-        category = session.query(Category).get(category_name)
+        category = Category.query.get(category_name)
         if not category:
             category_description = request.values.get('category_description')
             category_private = request.values.get('category_private') == 'yes'
             category = Category(category_name, category_description,
                                 category_private)
             session.add(category)
+            if category_private:
+                request.session.setdefault('secrets',
+                                           []).append(category.secret)
+
+        if Image.query.filter(and_(Image.filename==uploaded_file.filename,
+                                   Image.category==category)).first():
+            return generate_template(
+                'upload.html', error="Image already exists for this category",
+                formfill=request.values, category=category)
 
         category_path = join(request.config.uploads_path, category.name)
         if not isdir(category_path):
             makedirs(category_path)
 
+        current_cwd = getcwd()
+
         filename, ext = splitext(uploaded_file.filename)
         extension = ext[1:]
+        if extension.lower() == 'jpg':
+            extension = 'jpeg'
         mimetype, _ = guess_type(uploaded_file.filename)
 
         tempfile_path = mktemp()
@@ -108,7 +130,9 @@ def upload(request, category=None):
                 image.thumbnail((1100, 1100), PImage.ANTIALIAS)
                 image.save(resized_path, extension)
             else:
-                link(image_path, resized_path)
+                chdir(dirname(image_path))
+                symlink(basename(image_path), basename(resized_path))
+                chdir(current_cwd)
 
             # Thumbnailed Version
             thumbnail_path = join(category_path, filename + '.thumbnail' + ext)
@@ -116,7 +140,9 @@ def upload(request, category=None):
                 image.thumbnail((200, 200), PImage.ANTIALIAS)
                 image.save(thumbnail_path, extension)
             else:
-                link(image_path, thumbnail_path)
+                chdir(dirname(image_path))
+                symlink(basename(image_path), basename(thumbnail_path))
+                chdir(current_cwd)
         except IOError:
             for path in (image_path, resized_path, thumbnail_path):
                 if isfile(path):
@@ -133,10 +159,16 @@ def upload(request, category=None):
             remove(tempfile_path)
 
         description = request.values.get('description')
-        secret = request.values.get('secret')
-        image = Image(image_path, mimetype, description, secret)
+        private = request.values.get('private') == 'yes'
+        image = Image(image_path, mimetype, description, private,
+                      request.remote_addr)
         image.category = category
         session.commit()
+        if private:
+            request.session.setdefault('flashes', []).append(
+                "Your hidden image can be found <a href=\"%s\">here</a>"
+                % url_for(image, 'image'))
+            request.session.setdefault('secrets', []).append(image.id)
         if request.values.get('multiple'):
             return redirect(
                 url_for('upload', category=category.private and category.secret
@@ -148,14 +180,13 @@ def upload(request, category=None):
 
 def show_image(request, image=None):
     filename, extension = splitext(image)
-#    print 'show image', image, filename, extension
     if not extension:
-        image = Image.query.filter(Image.secret==image).first()
+        image = Image.query.get(image)
     else:
         image = Image.query.filter(
-            or_(Image.filename==filename+extension,
-                Image.filename==filename[:-len('.thumbnail')]+extension,
-                Image.filename==filename[:-len('.resized')]+extension)).first()
+            Image.filename.in_([filename+extension,
+                                filename[:-len('.thumbnail')]+extension,
+                                filename[:-len('.resized')]+extension])).first()
     if not image:
         raise NotFound("Requested image was not found")
     return generate_template('image.html', image=image)
@@ -165,7 +196,7 @@ def serve_image(request, image=None):
 
     filename, extension = splitext(image)
     if not extension:
-        loaded = Image.query.filter(Image.secret==image).first()
+        loaded = Image.query.get(image)
     else:
         loaded = Image.query.filter(
             or_(Image.filename==filename+extension,

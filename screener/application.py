@@ -98,6 +98,7 @@ class Screener(object):
         request = Request(environ)
         request.config = config
         request.bind_to_context()
+        request.setup_cookie()
 
         self.url_adapter = url_map.bind_to_environ(environ)
         try:
