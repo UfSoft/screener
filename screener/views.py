@@ -69,10 +69,10 @@ def upload(request, category=None):
             category_private = request.values.get('category_private') == 'yes'
             category = Category(category_name, category_description,
                                 category_private)
-            session.add(category)
             if category_private:
                 request.session.setdefault('secrets',
                                            []).append(category.secret)
+
 
         if Image.query.filter(and_(Image.filename==uploaded_file.filename,
                                    Image.category==category)).first():
@@ -90,6 +90,7 @@ def upload(request, category=None):
         extension = ext[1:]
         if extension.lower() == 'jpg':
             extension = 'jpeg'
+            ext = '.jpeg'
         mimetype, _ = guess_type(uploaded_file.filename)
 
         tempfile_path = mktemp()
@@ -120,7 +121,39 @@ def upload(request, category=None):
 
             image_path = join(category_path, filename + ext)
             # Original Image
-            image.save(image_path, extension)
+            if request.config.watermark_font and request.config.watermark_text:
+                print 'water'
+                from PIL import ImageFont, ImageDraw
+                from math import atan, degrees
+                original = image.convert("RGB")
+                original_width, original_height = original.size
+                watermark = PImage.new("RGBA", original.size)
+                draw = ImageDraw.ImageDraw(watermark, "RGBA")
+                size = 0
+                while True:
+                    size += 1
+                    nextfont = ImageFont.truetype(request.config.watermark_font,
+                                                  size)
+                    nexttextwidth, nexttextheight = nextfont.getsize(
+                                                request.config.watermark_text)
+                    if nexttextwidth+nexttextheight/3 > watermark.size[0]:
+                        break
+                    font = nextfont
+                    textwidth, textheight = nexttextwidth, nexttextheight
+                draw.setfont(font)
+                draw.text(((watermark.size[0]-textwidth)/2,
+                           (watermark.size[1]-textheight)/2),
+                           request.config.watermark_text)
+                watermark = watermark.rotate(
+                    degrees(atan(float(original_height)/original_width)),
+                    PImage.BICUBIC
+                )
+                mask = watermark.convert("L").point(lambda x: min(x, 55))
+                watermark.putalpha(mask)
+                original.paste(watermark, None, watermark)
+                original.save(image_path, extension)
+            else:
+                image.save(image_path, extension)
 
             # Resized version
             resized_path = join(category_path, filename + '.resized' + ext)
@@ -161,6 +194,7 @@ def upload(request, category=None):
         image = Image(image_path, mimetype, description, private,
                       request.remote_addr)
         image.category = category
+        session.add(image)
         session.commit()
         if private:
             request.session.setdefault('flashes', []).append(
@@ -176,32 +210,40 @@ def upload(request, category=None):
 
     return generate_template('upload.html', category=category)
 
-def show_image(request, image=None):
+def show_image(request, category=None, image=None):
+    category = Category.query.filter(or_(Category.name==category,
+                                         Category.secret==category)).first()
     filename, extension = splitext(image)
     if not extension:
         image = Image.query.get(image)
     else:
         image = Image.query.filter(
-            Image.filename.in_([filename+extension,
-                                filename[:-len('.thumbnail')]+extension,
-                                filename[:-len('.resized')]+extension])).first()
+            and_(Image.filename.in_([filename+extension,
+                                     filename[:-len('.thumbnail')]+extension,
+                                     filename[:-len('.resized')]+extension]),
+                 Image.category==category)).first()
     if not image:
         raise NotFound("Requested image was not found")
     if image.abuse_reported:
         raise ImageAbuseReported
     return generate_template('image.html', image=image)
 
-def serve_image(request, image=None):
-    print 'should have served image?', image, type(image), request.endpoint
+def serve_image(request, category=None, image=None):
+    print 'should have served image?', image, type(image), request.endpoint, category
+    category = Category.query.filter(or_(Category.name==category,
+                                         Category.secret==category)).first()
 
     filename, extension = splitext(image)
     if not extension:
         loaded = Image.query.get(image)
     else:
         loaded = Image.query.filter(
-            or_(Image.filename==filename+extension,
-                Image.filename==filename[:-len('.thumbnail')]+extension,
-                Image.filename==filename[:-len('.resized')]+extension)).first()
+            or_(and_(Image.filename==filename+extension,
+                     Image.category==category),
+                and_(Image.filename==filename[:-len('.thumbnail')]+extension,
+                     Image.category==category),
+                and_(Image.filename==filename[:-len('.resized')]+extension,
+                     Image.category==category))).first()
     if not loaded:
         raise NotFound("Image not found")
 

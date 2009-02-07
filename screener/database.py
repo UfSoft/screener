@@ -74,18 +74,24 @@ class Image(DeclarativeBase):
         submitter_ip = submitter_ip
 
     def __url__(self, image_type):
+        category = self.category.private and self.category.secret or \
+                                                            self.category.name
         if image_type == 'thumb':
             return url_for(
-                'thumb', image=self.private and self.id or self.thumb_name)
+                'thumb', image=self.private and self.id or self.thumb_name,
+                category=category)
         elif image_type == 'resized':
             return url_for(
-                'resized',  image=self.private and self.id or self.resized_name)
+                'resized',  image=self.private and self.id or self.resized_name,
+                category=category)
         elif image_type == 'image':
             return url_for(
-                'image', image=self.private and self.id or self.image_name)
+                'image', image=self.private and self.id or self.image_name,
+                category=category)
         elif image_type == 'show':
             return url_for(
-                'show', image=self.private and self.id or self.image_name)
+                'show', image=self.private and self.id or self.image_name,
+                category=category)
 
     @property
     def _filename_no_extension(self):

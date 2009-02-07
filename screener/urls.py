@@ -15,10 +15,10 @@ url_map = Map([
     Rule('/upload/<category>', endpoint='upload'),
     Rule('/categories', endpoint='categories'),
     Rule('/category/<category>', endpoint='category'),
-    Rule('/thumb/<image>', endpoint='thumb'),
-    Rule('/resized/<image>', endpoint='resized'),
-    Rule('/image/<image>', endpoint='image'),
-    Rule('/show/<image>', endpoint='show'),
+    Rule('/category/<category>/thumb/<image>', endpoint='thumb'),
+    Rule('/category/<category>/resized/<image>', endpoint='resized'),
+    Rule('/category/<category>/image/<image>', endpoint='image'),
+    Rule('/category/<category>/show/<image>', endpoint='show'),
     Rule('/shared/<file>', endpoint='shared', build_only=True)
 ])
 
