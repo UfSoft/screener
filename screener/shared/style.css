@@ -79,6 +79,7 @@ div.contents div.message-error {
 }
 .form input[type="submit"], .form button {
   background-color: #5d7685; color: #fff; }
+.form input[type="text"] { width: 300px; }
 .form table { width: 100%; margin-bottom: 15px; }
 .form table tr.header {
   background-image: url(imgs/header.png);
@@ -90,7 +91,7 @@ div.contents div.message-error {
 .form table tr.header th { text-align: center; }
 .form table tr th { text-align: right; }
 .form table tr td { text-align: left; width: 85%; }
-.form table tr td.help {
+.form table tr span.help {
   font-size: 60%; text-align: center; font-style: italic;
   padding-top: 15px; }
 div.buttons { margin-top: 20px; }

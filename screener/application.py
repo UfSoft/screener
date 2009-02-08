@@ -63,6 +63,7 @@ class Screener(object):
             parser.set('main', 'max_size', '10485760') # 10 Mb
             parser.set('main', 'secret_key', gen_secret_key())
             parser.set('main', 'cookie_name', 'screener_cookie')
+            parser.set('watermark', 'optional', 'true')
             parser.set('watermark', 'font', '')
             parser.set('watermark', 'text', 'Screener')
             parser.write(open(config_file, 'w'))
@@ -76,9 +77,9 @@ class Screener(object):
         config.max_size = parser.getint('main', 'max_size')
         config.secret_key = parser.get('main', 'secret_key', raw=True)
         config.cookie_name = parser.get('main', 'cookie_name')
+        config.watermark_optional = parser.getboolean('watermark', 'optional')
         config.watermark_font = parser.get('watermark', 'font')
         config.watermark_text = parser.get('watermark', 'text')
-        print 12345, config.watermark_font, config.watermark_text
         self.config = config
 
         if not path.isdir(config.uploads_path):

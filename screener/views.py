@@ -6,13 +6,12 @@
 # License: BSD - Please view the LICENSE file for additional information.
 # ==============================================================================
 
-from PIL import Image as PImage
+import PIL
 from os import remove, makedirs, removedirs, symlink, fstat, getcwd, chdir
 from os.path import join, splitext, isfile, isdir, dirname, basename
 from screener.utils import generate_template
 from tempfile import mktemp
-
-
+from math import atan, degrees
 from screener.database import session, Category, Image, and_, or_
 from screener.utils import url_for, Response, ImageAbuseReported
 
@@ -109,7 +108,7 @@ def upload(request, category=None):
         tempfile.close()
 
         try:
-            image = PImage.open(tempfile_path)
+            image = PIL.Image.open(tempfile_path)
         except IOError:
             remove(tempfile_path)
             return generate_template('upload.html', error="Invalid Image File",
@@ -121,32 +120,28 @@ def upload(request, category=None):
 
             image_path = join(category_path, filename + ext)
             # Original Image
-            if request.config.watermark_font and request.config.watermark_text:
-                print 'water'
-                from PIL import ImageFont, ImageDraw
-                from math import atan, degrees
-                original = image.convert("RGB")
+            watermark_text = request.values.get('watermark_text')
+            watermark_font = request.config.watermark_font
+            if watermark_font and watermark_text:
+                original = image.convert("RGBA")
                 original_width, original_height = original.size
-                watermark = PImage.new("RGBA", original.size)
-                draw = ImageDraw.ImageDraw(watermark, "RGBA")
+                watermark = PIL.Image.new("RGBA", original.size)
+                draw = PIL.ImageDraw.ImageDraw(watermark, "RGBA")
                 size = 0
                 while True:
                     size += 1
-                    nextfont = ImageFont.truetype(request.config.watermark_font,
-                                                  size)
-                    nexttextwidth, nexttextheight = nextfont.getsize(
-                                                request.config.watermark_text)
-                    if nexttextwidth+nexttextheight/3 > watermark.size[0]:
+                    nextfont = PIL.ImageFont.truetype(watermark_font, size)
+                    nxttxtwidth, nxttxtheight = nextfont.getsize(watermark_text)
+                    if nxttxtwidth + nxttxtheight / 3 > watermark.size[0]:
                         break
                     font = nextfont
-                    textwidth, textheight = nexttextwidth, nexttextheight
+                    textwidth, textheight = nxttxtwidth, nxttxtheight
                 draw.setfont(font)
                 draw.text(((watermark.size[0]-textwidth)/2,
-                           (watermark.size[1]-textheight)/2),
-                           request.config.watermark_text)
+                           (watermark.size[1]-textheight)/2), watermark_text)
                 watermark = watermark.rotate(
                     degrees(atan(float(original_height)/original_width)),
-                    PImage.BICUBIC
+                    PIL.Image.BICUBIC
                 )
                 mask = watermark.convert("L").point(lambda x: min(x, 55))
                 watermark.putalpha(mask)
@@ -158,7 +153,7 @@ def upload(request, category=None):
             # Resized version
             resized_path = join(category_path, filename + '.resized' + ext)
             if image_width > 1100:
-                image.thumbnail((1100, 1100), PImage.ANTIALIAS)
+                image.thumbnail((1100, 1100), PIL.Image.ANTIALIAS)
                 image.save(resized_path, extension)
             else:
                 chdir(dirname(image_path))
@@ -168,7 +163,7 @@ def upload(request, category=None):
             # Thumbnailed Version
             thumbnail_path = join(category_path, filename + '.thumbnail' + ext)
             if image_width > 200 or image_height > 200:
-                image.thumbnail((200, 200), PImage.ANTIALIAS)
+                image.thumbnail((200, 200), PIL.Image.ANTIALIAS)
                 image.save(thumbnail_path, extension)
             else:
                 chdir(dirname(image_path))
@@ -208,7 +203,10 @@ def upload(request, category=None):
         else:
             return redirect(url_for(category), 303)
 
-    return generate_template('upload.html', category=category)
+    return generate_template(
+        'upload.html', category=category,
+        watermark_text=request.config.watermark_text,
+        watermark_optional=request.config.watermark_optional)
 
 def show_image(request, category=None, image=None):
     category = Category.query.filter(or_(Category.name==category,

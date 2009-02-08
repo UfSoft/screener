@@ -41,13 +41,9 @@
               <input py:when="not category"
                      type="checkbox" name="category_private" value="yes"/>
               <span py:otherwise="">${ category.private and 'Yes' or 'No'}</span>
-            </td>
-          </tr>
-          <tr py:if="not category">
-            <td colspan="2" class="help">
-              If a category is private, a random string will be assigned as
-              it's name. You're required to remember that random string in
-              order to see the category again.
+              <span class="help">If a category is private, a random string will
+                be assigned as it's name. You're required to remember that
+                random string in order to see the category again.</span>
             </td>
           </tr>
         </table>
@@ -63,13 +59,18 @@
           </tr>
           <tr>
             <th><label for="private">Private:</label></th>
-            <td><input type="checkbox" name="private" value="yes"/></td>
+            <td><input type="checkbox" name="private" value="yes"/>
+              <span class="help">If an upload is private, a random string will
+                be assigned as it's ID. You're required to remember that random
+                string in order to see the image again.</span>
+            </td>
           </tr>
-          <tr>
-            <td colspan="2" class="help">
-              If an upload is private, a random string will be assigned as
-              it's ID. You're required to remember that random string in
-              order to see the image again.
+          <tr py:if="watermark_optional">
+            <th><label for="watermark_text">Watermark Text:</label></th>
+            <td>
+              <input type="text" size="29" name="watermark_text"
+                     value="${watermark_text}"/>
+              <span class="help">The full size image will be <em>branded</em> with this text.</span>
             </td>
           </tr>
         </table>
@@ -80,6 +81,8 @@
              href="${ url_for(category) }">
             <button type="button" name="view">View Gallery</button>
           </a>
+          <input py:if="not watermark_optional" type="hidden"
+                 name="watermark_text" value="${watermark_text}"/>
         </div>
       </form>
     </fieldset>
