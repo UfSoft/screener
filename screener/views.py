@@ -24,6 +24,7 @@ from mimetypes import guess_type
 
 from stat import ST_SIZE, ST_MTIME
 from time import asctime, gmtime, time
+from datetime import timedelta
 
 
 def categories_list(request):
@@ -154,12 +155,15 @@ def upload(request, category=None):
             # Resized version
             resized_path = join(category_path, filename + '.resized' + ext)
             if image_width > 1100:
-                image.thumbnail((1100, 1100), PImage.ANTIALIAS)
-                image.save(resized_path, extension)
+                if watermark_font and watermark_text:
+                    original.thumbnail((1100, 1100), PImage.ANTIALIAS)
+                    original.save(resized_path, extension)
+                else:
+                    image.thumbnail((1100, 1100), PImage.ANTIALIAS)
+                    image.save(resized_path, extension)
             else:
                 chdir(dirname(image_path))
                 symlink(basename(image_path), basename(resized_path))
-                chdir(current_cwd)
 
             # Thumbnailed Version
             thumbnail_path = join(category_path, filename + '.thumbnail' + ext)
@@ -169,11 +173,17 @@ def upload(request, category=None):
             else:
                 chdir(dirname(image_path))
                 symlink(basename(image_path), basename(thumbnail_path))
+
+            if getcwd() != current_cwd:
+                # Changed directories for symlink'ing, back to old CWD
                 chdir(current_cwd)
         except IOError:
             for path in (image_path, resized_path, thumbnail_path):
                 if isfile(path):
                     remove(path)
+            if getcwd() != current_cwd:
+                # Changed directories for symlink'ing, back to old CWD
+                chdir(current_cwd)
             try:
                 removedirs(category_path)
             except OSError:
@@ -258,20 +268,30 @@ def serve_image(request, category=None, image=None):
     picture = open(getattr(loaded, "%s_path" % request.endpoint), 'rb')
 
     size = fstat(picture.fileno())[ST_SIZE]
-    expiry = loaded.stamp.strftime("%a %b %d %H:%M:%S %Y")
+    # This image won't change, allow caching it for a year
+    expiry = loaded.stamp + timedelta(days=365)
 
     headers = [
-        ('Cache-Control', 'public'),
+        # If the image is private, don't allow cache systems to cache it
+        # only the requesting user can cache it
+        ('Cache-Control', loaded.private and 'private' or 'public'),
+        # The rest of the headers
         ('Content-Length', str(size)),
-        ('Expires', expiry),
+        ('Expires', expiry.strftime("%a %b %d %H:%M:%S %Y")),
         ('ETag', loaded.etag)
     ]
-    if parse_etags(request.headers.get('HTTP_IF_NONE_MATCH')) \
-                                                    .contains(loaded.etag):
+    if request.if_none_match.contains(loaded.etag):
         remove_entity_headers(headers)
         return Response('', 304, headers=headers)
 
-    return Response(picture.read(), content_type=content_type, headers=headers)
+    def stream():
+        while True:
+            data = picture.read(2048)
+            if not data:
+                break
+            yield data
+
+    return Response(stream(), content_type=content_type, headers=headers)
 
 
 def report_abuse(request, category=None, image=None):

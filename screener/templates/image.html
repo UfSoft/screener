@@ -11,28 +11,12 @@
   </head>
   <body>
     <center>
-      <a href="${url_for(image, 'image')}" py:if="not image.abuse_reported">
+      <a href="${ image.abuse_status > 0 and shared_url('imgs/sign.png') or url_for(image, 'image') }">
         <img class="instant historical itiltnone nocorner preserve"
-             alt="${ image.filename }"
-             title="${ image.description or image.filename }"
-             src="${url_for(image, 'resized')}"/>
-      </a>
-      <a href="${shared_url('imgs/sign.png')}" py:if="image.abuse_reported">
-        <img class="instant historical itiltnone nocorner preserve"
-             alt="Abuse Reported. Image Removed."
-             title="Abuse Reported. Image Removed."
-             src="${shared_url('imgs/sign.png')}"/>
+             alt="${ image.abuse_status > 0 and 'Abuse Reported. Image Removed.' or image.filename }"
+             title="${ image.abuse_status > 0 and 'Abuse Reported. Image Removed.' or (image.description or image.filename) }"
+             src="${ image.abuse_status > 0 and shared_url('imgs/sign.png') or url_for(image, 'resized')}"/>
       </a>
     </center>
-    <!--!
-    <center>
-      <a href="${url_for(image, 'image')}">
-        <img class="slided ibgcolor5d7685 itxttitle"
-             alt="${ image.filename }"
-             title="${ image.description or image.filename }"
-             src="${url_for(image, 'resized')}"/>
-      </a>
-    </center>
-     -->
   </body>
 </html>
