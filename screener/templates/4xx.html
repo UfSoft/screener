@@ -7,7 +7,8 @@
   </head>
   <body>
     <div class="message message-error">
-      $exception.code $exception.name &mdash; $exception.description
+      $exception.code $exception.name<br/>
+      ${ Markup(exception.description) }
     </div>
     <center py:if="exception.code in (409, 410)">
       <img alt="NOTICE: Abuse Reported." py:if="exception.code == 409"

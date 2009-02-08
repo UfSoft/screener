@@ -113,3 +113,5 @@ div.buttons { margin-top: 20px; }
 .jquery-checkbox-checked .jquery-checkbox-hover img { background-position: 0px -43px; }
 .jquery-checkbox-disabled img{ background-position: 0px -64px; }
 .jquery-checkbox-checked .jquery-checkbox-disabled img{ background-position: 0px -85px; }
+
+div.abuse a, div.abuse a:visited { font-size: 70%; color: #fff; text-decoration: none; }

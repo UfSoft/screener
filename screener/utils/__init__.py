@@ -33,7 +33,6 @@ local_manager = LocalManager([local])
 request = local('request')
 application = local('application')
 
-
 class ImageAbuseReported(NotFound):
     description = "Abuse Reported."
     code = 409

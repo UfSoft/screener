@@ -91,6 +91,10 @@ class Image(DeclarativeBase):
             return url_for(
                 'show', image=self.private and self.id or self.image_name,
                 category=category)
+        elif image_type == 'abuse':
+            return url_for(
+                'abuse', image=self.private and self.id or self.image_name,
+                category=category)
 
     @property
     def _filename_no_extension(self):

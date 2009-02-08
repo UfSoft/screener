@@ -29,6 +29,8 @@ SHARED_DATA = path.join(path.dirname(__file__), 'shared')
 
 sys.modules['screener.config'] = config = ModuleType('config')
 
+MESSAGE_404 = "The requested URL was not found on the server. If you entered" +\
+              " the URL manually please check your spelling and try again."
 
 class Screener(object):
     """Our central WSGI application."""
@@ -117,20 +119,22 @@ class Screener(object):
 #            print type(response)
             if isinstance(response, Stream):
                 response = Response(response)
-        except (NotFound, ImageAbuseReported, ImageAbuseConfirmed), exception:
-            print exception, exception.description, exception.description
-            response = Response(generate_template('400.html',
-                                                  exception=exception))
-            response.status_code = exception.code
+        except KeyError, e:
+            print 'KeyError', e
+            e.description = MESSAGE_404
+            e.status = 404
+            e.name = "Not Found"
+            response = Response(generate_template('4xx.html', exception=e))
+            response.status_code = 404
+        except (NotFound, ImageAbuseReported, ImageAbuseConfirmed), e:
+            if e.code == 404:
+                e.description = MESSAGE_404
+            response = Response(generate_template('4xx.html', exception=e))
+            response.status_code = e.code
             # Error Codes:
             #    404:    Not Found
             #    409:    Resource Conflict
             #    410:    Resource Gone
-        except KeyError, e:
-            print 'KeyError', e
-            raise
-            response = Response(generate_template('404.html'))
-            response.status_code = 404
         except HTTPException, e:
             response = e.get_response(environ)
 

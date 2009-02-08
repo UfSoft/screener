@@ -295,4 +295,4 @@ def serve_image(request, category=None, image=None):
 
 
 def report_abuse(request, category=None, image=None):
-    return generate_template('report_abuse.html')
+    return generate_template('abuse.html')

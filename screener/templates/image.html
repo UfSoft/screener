@@ -17,6 +17,9 @@
              title="${ image.abuse_status > 0 and 'Abuse Reported. Image Removed.' or (image.description or image.filename) }"
              src="${ image.abuse_status > 0 and shared_url('imgs/sign.png') or url_for(image, 'resized')}"/>
       </a>
+      <div class="abuse">
+        <a  href="${ url_for(image, 'abuse') }">Report Abuse</a>
+      </div>
     </center>
   </body>
 </html>
