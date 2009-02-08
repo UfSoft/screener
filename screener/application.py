@@ -117,17 +117,15 @@ class Screener(object):
 #            print type(response)
             if isinstance(response, Stream):
                 response = Response(response)
-        except ImageAbuseReported:
-            response = Response(generate_template('abuse.html'))
-            response.status_code = 409 # Resource Conflict
-        except ImageAbuseConfirmed:
-            response = Response(generate_template('abuse.html'))
-            response.status_code = 410 # Resource Gone
-        except NotFound, error:
-            response = Response(generate_template('404.html', error=error))
-            response.status_code = 404
-            print 'NotFound', error
-            raise
+        except (NotFound, ImageAbuseReported, ImageAbuseConfirmed), exception:
+            print exception, exception.description, exception.description
+            response = Response(generate_template('400.html',
+                                                  exception=exception))
+            response.status_code = exception.code
+            # Error Codes:
+            #    404:    Not Found
+            #    409:    Resource Conflict
+            #    410:    Resource Gone
         except KeyError, e:
             print 'KeyError', e
             raise

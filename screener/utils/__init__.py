@@ -35,10 +35,12 @@ application = local('application')
 
 
 class ImageAbuseReported(NotFound):
-    pass
+    description = "Abuse Reported."
+    code = 409
 
 class ImageAbuseConfirmed(NotFound):
-    pass
+    description = "Abuse Reported. Image Removed."
+    code = 410
 
 def generate_template(template_name, **context):
     """Load and generate a template."""

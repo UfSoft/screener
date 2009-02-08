@@ -37,11 +37,11 @@ def categories_list(request):
 
 def category_list(request, category=None):
     if not category:
-        raise NotFound()
+        raise NotFound("Category not found.")
     category = Category.query.filter(or_(Category.name==category,
                                          Category.secret==category)).first()
     if category is None:
-        raise NotFound()
+        raise NotFound("Category not found.")
     return generate_template('category.html', category=category)
 
 
@@ -257,7 +257,7 @@ def serve_image(request, category=None, image=None):
                 and_(Image.filename==filename[:-len('.resized')]+extension,
                      Image.category==category))).first()
     if not loaded:
-        raise NotFound("Image not found")
+        raise NotFound("Requested image was not found")
 
     if loaded.abuse_status == 1:
         raise ImageAbuseReported

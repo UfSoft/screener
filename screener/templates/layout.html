@@ -23,7 +23,7 @@
           <ul class="nav">
             ${ navigation('categories', 'Categories') }
             ${ navigation('upload', 'Upload', first=request.endpoint!='category') }
-            <py:if test="request.endpoint == 'category'">
+            <py:if test="category and request.endpoint == 'category'">
               ${ navigation('upload', 'Upload To %s' % category.name,
                             category=category.private and category.secret or category.name,
                             first=True) }

@@ -1,0 +1,21 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="layout.html" />
+  <head>
+    <title>$exception.code $exception.name &mdash; $exception.description</title>
+  </head>
+  <body>
+    <div class="message message-error">
+      $exception.code $exception.name &mdash; $exception.description
+    </div>
+    <center py:if="exception.code in (409, 410)">
+      <img alt="NOTICE: Abuse Reported." py:if="exception.code == 409"
+           title="NOTICE: Abuse Reported."
+           src="${shared_url('imgs/abuse_reported.png')}"/>
+      <img alt="NOTICE: Abuse Reported. Image Removed." py:if="exception.code == 410"
+           title="NOTICE: Abuse Reported. Image Removed."
+           src="${shared_url('imgs/abuse_confirmed.png')}"/>
+    </center>
+  </body>
+</html>
