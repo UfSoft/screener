@@ -19,6 +19,7 @@ url_map = Map([
     Rule('/category/<category>/resized/<image>', endpoint='resized'),
     Rule('/category/<category>/image/<image>', endpoint='image'),
     Rule('/category/<category>/show/<image>', endpoint='show'),
+    Rule('/category/<category>/report/<image>', endpoint='abuse'),
     Rule('/shared/<file>', endpoint='shared', build_only=True)
 ])
 
@@ -29,8 +30,8 @@ handlers = {
     'thumb':        views.serve_image,
     'resized':      views.serve_image,
     'upload':       views.upload,
-    'invalid':      views.invalid,
     'category':     views.category_list,
     'categories':   views.categories_list,
+    'abuse':        views.report_abuse
 }
 

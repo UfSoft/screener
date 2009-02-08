@@ -7,13 +7,15 @@
 # ==============================================================================
 
 import PIL
+from PIL import Image as PImage, ImageDraw, ImageFont
 from os import remove, makedirs, removedirs, symlink, fstat, getcwd, chdir
 from os.path import join, splitext, isfile, isdir, dirname, basename
 from screener.utils import generate_template
 from tempfile import mktemp
 from math import atan, degrees
 from screener.database import session, Category, Image, and_, or_
-from screener.utils import url_for, Response, ImageAbuseReported
+from screener.utils import (url_for, Response, ImageAbuseReported,
+                            ImageAbuseConfirmed)
 
 from werkzeug.exceptions import NotFound
 from werkzeug.utils import redirect
@@ -31,6 +33,7 @@ def categories_list(request):
     ).all()
     return generate_template('category_list.html', categories=categories)
 
+
 def category_list(request, category=None):
     if not category:
         raise NotFound()
@@ -40,8 +43,6 @@ def category_list(request, category=None):
         raise NotFound()
     return generate_template('category.html', category=category)
 
-def invalid(request):
-    return generate_template('index.html')
 
 def index(request):
     return generate_template('index.html')
@@ -108,7 +109,7 @@ def upload(request, category=None):
         tempfile.close()
 
         try:
-            image = PIL.Image.open(tempfile_path)
+            image = PImage.open(tempfile_path)
         except IOError:
             remove(tempfile_path)
             return generate_template('upload.html', error="Invalid Image File",
@@ -125,12 +126,12 @@ def upload(request, category=None):
             if watermark_font and watermark_text:
                 original = image.convert("RGBA")
                 original_width, original_height = original.size
-                watermark = PIL.Image.new("RGBA", original.size)
-                draw = PIL.ImageDraw.ImageDraw(watermark, "RGBA")
+                watermark = PImage.new("RGBA", original.size)
+                draw = ImageDraw.ImageDraw(watermark, "RGBA")
                 size = 0
                 while True:
                     size += 1
-                    nextfont = PIL.ImageFont.truetype(watermark_font, size)
+                    nextfont = ImageFont.truetype(watermark_font, size)
                     nxttxtwidth, nxttxtheight = nextfont.getsize(watermark_text)
                     if nxttxtwidth + nxttxtheight / 3 > watermark.size[0]:
                         break
@@ -141,7 +142,7 @@ def upload(request, category=None):
                            (watermark.size[1]-textheight)/2), watermark_text)
                 watermark = watermark.rotate(
                     degrees(atan(float(original_height)/original_width)),
-                    PIL.Image.BICUBIC
+                    PImage.BICUBIC
                 )
                 mask = watermark.convert("L").point(lambda x: min(x, 55))
                 watermark.putalpha(mask)
@@ -153,7 +154,7 @@ def upload(request, category=None):
             # Resized version
             resized_path = join(category_path, filename + '.resized' + ext)
             if image_width > 1100:
-                image.thumbnail((1100, 1100), PIL.Image.ANTIALIAS)
+                image.thumbnail((1100, 1100), PImage.ANTIALIAS)
                 image.save(resized_path, extension)
             else:
                 chdir(dirname(image_path))
@@ -163,7 +164,7 @@ def upload(request, category=None):
             # Thumbnailed Version
             thumbnail_path = join(category_path, filename + '.thumbnail' + ext)
             if image_width > 200 or image_height > 200:
-                image.thumbnail((200, 200), PIL.Image.ANTIALIAS)
+                image.thumbnail((200, 200), PImage.ANTIALIAS)
                 image.save(thumbnail_path, extension)
             else:
                 chdir(dirname(image_path))
@@ -208,6 +209,7 @@ def upload(request, category=None):
         watermark_text=request.config.watermark_text,
         watermark_optional=request.config.watermark_optional)
 
+
 def show_image(request, category=None, image=None):
     category = Category.query.filter(or_(Category.name==category,
                                          Category.secret==category)).first()
@@ -222,8 +224,10 @@ def show_image(request, category=None, image=None):
                  Image.category==category)).first()
     if not image:
         raise NotFound("Requested image was not found")
-    if image.abuse_reported:
+    if image.abuse_status == 1:
         raise ImageAbuseReported
+    elif image.abuse_status == 2:
+        raise ImageAbuseConfirmed
     return generate_template('image.html', image=image)
 
 def serve_image(request, category=None, image=None):
@@ -245,9 +249,10 @@ def serve_image(request, category=None, image=None):
     if not loaded:
         raise NotFound("Image not found")
 
-
-    if loaded.abuse_reported:
+    if loaded.abuse_status == 1:
         raise ImageAbuseReported
+    elif loaded.abuse_status == 2:
+        raise ImageAbuseConfirmed
 
     content_type = loaded.mimetype
     picture = open(getattr(loaded, "%s_path" % request.endpoint), 'rb')
@@ -261,11 +266,13 @@ def serve_image(request, category=None, image=None):
         ('Expires', expiry),
         ('ETag', loaded.etag)
     ]
-#    print 'HEADERS', headers, request.headers.get('HTTP_IF_NONE_MATCH')
     if parse_etags(request.headers.get('HTTP_IF_NONE_MATCH')) \
                                                     .contains(loaded.etag):
         remove_entity_headers(headers)
         return Response('', 304, headers=headers)
 
-#    print type(request.headers)
     return Response(picture.read(), content_type=content_type, headers=headers)
+
+
+def report_abuse(request, category=None, image=None):
+    return generate_template('report_abuse.html')

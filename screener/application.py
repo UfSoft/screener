@@ -17,7 +17,8 @@ from werkzeug.exceptions import HTTPException, NotFound
 
 from screener.database import DeclarativeBase, session
 from screener.utils import (Request, Response, local, local_manager,
-                            generate_template, ImageAbuseReported)
+                            generate_template, ImageAbuseReported,
+                            ImageAbuseConfirmed)
 from screener.utils.crypto import gen_secret_key
 from screener.urls import url_map, handlers
 
@@ -118,15 +119,18 @@ class Screener(object):
                 response = Response(response)
         except ImageAbuseReported:
             response = Response(generate_template('abuse.html'))
-            response.status_code = 410 # Resource Gone or 409 Conflict?
+            response.status_code = 409 # Resource Conflict
+        except ImageAbuseConfirmed:
+            response = Response(generate_template('abuse.html'))
+            response.status_code = 410 # Resource Gone
         except NotFound, error:
             response = Response(generate_template('404.html', error=error))
             response.status_code = 404
-            print error
+            print 'NotFound', error
             raise
         except KeyError, e:
-            #request.endpoint = ''
-            raise e
+            print 'KeyError', e
+            raise
             response = Response(generate_template('404.html'))
             response.status_code = 404
         except HTTPException, e:

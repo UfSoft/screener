@@ -8,18 +8,17 @@
 from random import choice
 from hashlib import sha1, md5
 from os.path import basename, splitext, dirname, join
-from sqlalchemy import and_
 from datetime import datetime
-from sqlalchemy import (Column, Integer, String, DateTime, ForeignKey, Boolean,
-                        Binary)
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 
 from sqlalchemy import and_, or_
-from sqlalchemy.orm import (create_session, scoped_session, relation, Query,
-                            dynamic_loader, backref, deferred)
+from sqlalchemy.orm import create_session, scoped_session, relation, Query
 
 from sqlalchemy.ext.declarative import declarative_base
 
 from screener.utils import application, local, local_manager, url_for
+
+ABUSE_UNREPORTED, ABUSE_REPORTED, ABUSE_CONFIRMED = range(3)
 
 DeclarativeBase = declarative_base()
 metadata = DeclarativeBase.metadata
@@ -52,7 +51,7 @@ class Image(DeclarativeBase):
     description    = Column(String, default=u'')
     submitter_ip   = Column(String(15))
     private        = Column(Boolean, default=False)
-    abuse_reported = Column(Boolean, default=False)
+    abuse_status   = Column(Integer, default=0)
     category_name  = Column(None, ForeignKey('categories.name'))
 
     category      = None # Associated elsewhere
@@ -127,7 +126,7 @@ class Image(DeclarativeBase):
     @property
     def resized_path(self):
         return join(self.path, "%s.resized%s" % (self._filename_no_extension,
-                                                   self.extension))
+                                                 self.extension))
 
     @property
     def etag(self):
@@ -162,7 +161,6 @@ class Category(DeclarativeBase):
         secret.update(str(self.stamp))
         self.secret = secret.hexdigest()
 
-
     def __url__(self):
         if self.private:
             return url_for('category', category=self.secret)
@@ -171,9 +169,9 @@ class Category(DeclarativeBase):
     @property
     def random(self):
         available_ids = session.query(Image.id).filter(
-            or_(and_(Image.private==False, Image.abuse_reported==False,
+            or_(and_(Image.private==False, Image.abuse_status==0,
                      Image.category==self),
-                and_(Image.private==True, Image.abuse_reported==False,
+                and_(Image.private==True, Image.abuse_status==0,
                      Image.category==self,
                      Image.id.in_(local.request.session.get('secrets', [])))
             )
@@ -182,13 +180,10 @@ class Category(DeclarativeBase):
 
     def visible_images(self):
         return Image.query.filter(
-            or_(and_(Image.private==False, Image.abuse_reported==False,
+            or_(and_(Image.private==False, Image.abuse_status==0,
                      Image.category==self),
-                and_(Image.private==True, Image.abuse_reported==False,
+                and_(Image.private==True, Image.abuse_status==0,
                      Image.category==self,
                      Image.id.in_(local.request.session.get('secrets', [])))
             )
         ).all()
-
-
-

@@ -37,6 +37,9 @@ application = local('application')
 class ImageAbuseReported(NotFound):
     pass
 
+class ImageAbuseConfirmed(NotFound):
+    pass
+
 def generate_template(template_name, **context):
     """Load and generate a template."""
     formfill = context.pop('formfill', None)
