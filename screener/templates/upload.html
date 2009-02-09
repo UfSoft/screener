@@ -41,9 +41,10 @@
               <input py:when="not category"
                      type="checkbox" name="category_private" value="yes"/>
               <span py:otherwise="">${ category.private and 'Yes' or 'No'}</span>
-              <span class="help">If a category is private, a random string will
-                be assigned as it's name. You're required to remember that
-                random string in order to see the category again.</span>
+              <span class="help" py:if="not category">If a category is private,
+                a random string will be assigned as it's name. You're required
+                to remember that random string in order to see the category
+                again.</span>
             </td>
           </tr>
         </table>

@@ -4,8 +4,42 @@
   <xi:include href="layout.html" />
   <head>
     <title>Report Image Abuse</title>
+    <script type="text/javascript" src="${shared_url('js/jquery.js')}" />
+    <script type="text/javascript" src="${shared_url('js/cvi_text_lib.js')}" />
+    <script type="text/javascript" src="${shared_url('js/jquery.slided.js')}" />
   </head>
   <body>
-    <h1>Report Image Abuse</h1>
+    <fieldset class="form">
+      <a href="${url_for(image, 'show')}" style="float: right;">
+        <img class="slided ibgcolore0e0e0 itxtalt"
+             alt="${ image.filename }"
+             title="${ image.description or image.filename }"
+             src="${url_for(image, 'thumb')}"/>
+      </a>
+      <legend>Report Image Abuse</legend>
+      <form  action="" method="POST">
+        <table>
+          <tr>
+            <th><label for="email">Email:</label></th>
+            <td>
+              <input type="text" name="email" value="${ request.session.get('user').email }"/>
+              <span class="help">Required to assure that this is
+                not an automated request.
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <th><label for="reason">Reason:</label></th>
+            <td>
+              <textarea type="text" cols="79" rows="5" name="reason"/>
+            </td>
+          </tr>
+        </table>
+        <div class="buttons" style="">
+          <input type="submit" name="report" value="Report Abuse"/>
+        </div>
+      </form><div class="frame">
+    </div>
+    </fieldset>
   </body>
 </html>

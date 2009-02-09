@@ -13,7 +13,7 @@ from os.path import join, splitext, isfile, isdir, dirname, basename
 from screener.utils import generate_template
 from tempfile import mktemp
 from math import atan, degrees
-from screener.database import session, Category, Image, and_, or_
+from screener.database import session, Category, Image, Abuse, User, and_, or_
 from screener.utils import (url_for, Response, ImageAbuseReported,
                             ImageAbuseConfirmed)
 
@@ -28,11 +28,8 @@ from datetime import timedelta
 
 
 def categories_list(request):
-    categories = Category.query.filter(
-        or_(Category.private==False,
-            Category.secret.in_(request.session.get('secrets', [])))
-    ).all()
-    return generate_template('category_list.html', categories=categories)
+    return generate_template('category_list.html',
+                             categories=Category.visible())
 
 
 def category_list(request, category=None):
@@ -70,9 +67,6 @@ def upload(request, category=None):
             category_private = request.values.get('category_private') == 'yes'
             category = Category(category_name, category_description,
                                 category_private)
-            if category_private:
-                request.session.setdefault('secrets',
-                                           []).append(category.secret)
 
 
         if Image.query.filter(and_(Image.filename==uploaded_file.filename,
@@ -195,10 +189,10 @@ def upload(request, category=None):
         finally:
             remove(tempfile_path)
 
-        description = request.values.get('description')
         private = request.values.get('private') == 'yes'
-        image = Image(image_path, mimetype, description, private,
-                      request.remote_addr)
+        image = Image(image_path, mimetype,
+                      description=request.values.get('description'),
+                      private=private, submitter_ip=request.remote_addr)
         image.category = category
         session.add(image)
         session.commit()
@@ -206,7 +200,6 @@ def upload(request, category=None):
             request.session.setdefault('flashes', []).append(
                 "Your hidden image can be found <a href=\"%s\">here</a>"
                 % url_for(image, 'image'))
-            request.session.setdefault('secrets', []).append(image.id)
         if request.values.get('multiple'):
             return redirect(
                 url_for('upload', category=category.private and category.secret
@@ -232,12 +225,18 @@ def show_image(request, category=None, image=None):
                                      filename[:-len('.thumbnail')]+extension,
                                      filename[:-len('.resized')]+extension]),
                  Image.category==category)).first()
+
     if not image:
         raise NotFound("Requested image was not found")
-    if image.abuse_status == 1:
-        raise ImageAbuseReported
-    elif image.abuse_status == 2:
+
+    if image.abuse and image.abuse.confirmed:
         raise ImageAbuseConfirmed
+    elif image.abuse:
+        raise ImageAbuseReported
+
+    image.views += 1
+    session.commit()
+
     return generate_template('image.html', image=image)
 
 def serve_image(request, category=None, image=None):
@@ -259,10 +258,10 @@ def serve_image(request, category=None, image=None):
     if not loaded:
         raise NotFound("Requested image was not found")
 
-    if loaded.abuse_status == 1:
-        raise ImageAbuseReported
-    elif loaded.abuse_status == 2:
+    if loaded.abuse and loaded.abuse.confirmed:
         raise ImageAbuseConfirmed
+    elif loaded.abuse:
+        raise ImageAbuseReported
 
     content_type = loaded.mimetype
     picture = open(getattr(loaded, "%s_path" % request.endpoint), 'rb')
@@ -295,4 +294,29 @@ def serve_image(request, category=None, image=None):
 
 
 def report_abuse(request, category=None, image=None):
-    return generate_template('abuse.html')
+    category = Category.query.filter(or_(Category.name==category,
+                                         Category.secret==category)).first()
+    filename, extension = splitext(image)
+    if not extension:
+        image = Image.query.get(image)
+    else:
+        image = Image.query.filter(
+            and_(Image.filename.in_([filename+extension,
+                                     filename[:-len('.thumbnail')]+extension,
+                                     filename[:-len('.resized')]+extension]),
+                 Image.category==category)).first()
+
+    if not image:
+        raise NotFound("Requested image was not found")
+
+    if request.method == 'POST':
+        reason = request.values.get('reason')
+        reporter_ip = request.remote_addr
+        reporter_email = request.values.get('email')
+        if not reason or not reporter_email:
+            return generate_template('abuse.html', category=category,
+                image=image, error="You need both your email address and a "
+                                   "reason why you're reporting this abuse.")
+        image.abuse = Abuse(reason, reporter_ip, reporter_email)
+        session.commit()
+    return generate_template('abuse.html', category=category, image=image)

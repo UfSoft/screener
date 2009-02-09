@@ -15,6 +15,7 @@ from werkzeug.local import Local, LocalManager
 from werkzeug.contrib.securecookie import SecureCookie
 from werkzeug.exceptions import NotFound
 
+
 __all__ = ['local', 'local_manager', 'request', 'application',
            'generate_template', 'url_for', 'shared_url', 'format_datetime',
            'Request', 'Response']
@@ -76,10 +77,27 @@ class Request(BaseRequest, ETagRequestMixin):
         local.request = self
 
     def setup_cookie(self):
+        from screener.database import User, session
         self.session = SecureCookie.load_cookie(
             self, application.config.cookie_name,
             application.config.secret_key.encode('utf-8')
         )
+
+        def new_user():
+            user = User()
+            session.add(user)
+            self.session['uuid'] = user.uuid
+            self.user = user
+
+        if 'uuid' not in self.session:
+            new_user()
+        else:
+            self.user = User.query.get(self.session.get('uuid'))
+            if not self.user:
+                new_user()
+
+        self.user.update_last_visit()
+        session.commit()
 
 class Response(BaseResponse):
     """

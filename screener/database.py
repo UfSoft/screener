@@ -6,19 +6,20 @@
 # License: BSD - Please view the LICENSE file for additional information.
 # ==============================================================================
 from random import choice
+from uuid import uuid4
 from hashlib import sha1, md5
 from os.path import basename, splitext, dirname, join
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 
 from sqlalchemy import and_, or_
-from sqlalchemy.orm import create_session, scoped_session, relation, Query
+from sqlalchemy.orm import (create_session, scoped_session, relation, Query,
+                            deferred)
 
 from sqlalchemy.ext.declarative import declarative_base
 
 from screener.utils import application, local, local_manager, url_for
-
-ABUSE_UNREPORTED, ABUSE_REPORTED, ABUSE_CONFIRMED = range(3)
+from screener.utils.crypto import gen_pwhash, check_pwhash
 
 DeclarativeBase = declarative_base()
 metadata = DeclarativeBase.metadata
@@ -38,6 +39,79 @@ def new_db_session():
 # you the current active session
 session = scoped_session(lambda: new_db_session(), local_manager.get_ident)
 
+class User(DeclarativeBase):
+    __tablename__ = 'users'
+
+    uuid        = Column(String(40), primary_key=True)
+    username    = Column(String)
+    email       = Column(String)
+    confirmed   = Column(Boolean, default=False)
+    passwd_hash = Column(String)
+    last_visit  = Column(DateTime, default=datetime.utcnow())
+
+    images      = None # relationed elsewhere
+    reports     = None # relationed elsewhere
+    categories  = None # relationed elsewhere
+
+    # Query Object
+    query = session.query_property(Query)
+
+    def __init__(self, username=None, email=None, confirmed=False, passwd=None):
+        self.uuid = uuid4().hex
+        if username:
+            self.username = username
+        if email:
+            self.email = email
+        if confirmed:
+            self.confirmed = confirmed
+        if passwd:
+            self.passwd_hash = gen_pwhash(passwd)
+
+    def __repr__(self):
+        return "<User uuid:%s>" % self.uuid
+
+    def authenticate(self, password):
+        if self.confirmed and check_pwhash(self.passwd_hash, password):
+            self.last_visit = datetime.utcnow()
+            session.commit()
+            return True
+        return False # 401?
+
+    def update_last_visit(self):
+        self.last_visit = datetime.utcnow()
+
+    def confirm(self, uuid):
+        if uuid == self.uuid:
+            self.confirmed = True
+
+#class UserAttribute(DeclarativeBase):
+#    uuid = Column('user_uuid', None, ForeignKey('users.uuid'))
+#    attr = Column(String)
+#    value = Column(String)
+
+
+class Abuse(DeclarativeBase):
+    __tablename__ = 'reports'
+
+    # Table Columns
+    id             = Column('image_id', None, ForeignKey('images.id'),
+                            primary_key=True)
+    confirmed      = Column(Boolean, default=False)
+    reason         = deferred(Column(String))
+    reporter_ip    = deferred(Column(String(15)))
+    reporter_email = deferred(Column(String))
+    owner_uid      = Column(None, ForeignKey('users.uuid'))
+
+    owner          = relation(User, backref='reports')
+
+    # Query Object
+    query = session.query_property(Query)
+
+    def __init__(self, reason, reporter_ip, reporter_email):
+        self.reason = reason
+        self.reporter_ip = reporter_ip
+        self.reporter_email = reporter_email
+        self.owner = local.request.user
 
 class Image(DeclarativeBase):
     __tablename__ = 'images'
@@ -51,9 +125,14 @@ class Image(DeclarativeBase):
     description    = Column(String, default=u'')
     submitter_ip   = Column(String(15))
     private        = Column(Boolean, default=False)
-    abuse_status   = Column(Integer, default=0)
+    views          = Column(Integer, default=0)
     category_name  = Column(None, ForeignKey('categories.name'))
+    owner_uid      = Column(None, ForeignKey('users.uuid'))
 
+    # ForeignKey Association
+    abuse         = relation(Abuse, backref='image', uselist=False,
+                             cascade="all, delete, delete-orphan")
+    owner         = relation(User, backref='images')
     category      = None # Associated elsewhere
 
     # Query Object
@@ -70,7 +149,8 @@ class Image(DeclarativeBase):
         self.mimetype = mimetype
         self.description = description
         self.private = private
-        submitter_ip = submitter_ip
+        self.submitter_ip = submitter_ip
+        self.owner = local.request.user
 
     def __url__(self, image_type):
         category = self.category.private and self.category.secret or \
@@ -148,10 +228,12 @@ class Category(DeclarativeBase):
     stamp       = Column(DateTime, default=datetime.utcnow())
     description = Column(String)
     private     = Column(Boolean, default=False)
+    owner_uid   = Column(None, ForeignKey('users.uuid'))
 
     # ForeignKey Association
     images      = relation(Image, backref="category",
                            cascade="all, delete, delete-orphan")
+    owner       = relation(User, backref='category')
 
     # Query Object
     query = session.query_property(Query)
@@ -164,30 +246,44 @@ class Category(DeclarativeBase):
         secret = sha1(name)
         secret.update(str(self.stamp))
         self.secret = secret.hexdigest()
+        self.owner = local.request.user
 
     def __url__(self):
         if self.private:
             return url_for('category', category=self.secret)
         return url_for('category', category=self.name)
 
+    @classmethod
+    def visible(self):
+        return Category.query.filter(
+            or_(Category.private==False,
+                and_(Category.private==True,
+                     Category.owner==User.query.get(
+                        local.request.session.get('uuid')
+                     )
+                )
+            )
+        ).all()
+
     @property
     def random(self):
         available_ids = session.query(Image.id).filter(
-            or_(and_(Image.private==False, Image.abuse_status==0,
+            or_(and_(Image.private==False, Image.abuse==None,
                      Image.category==self),
-                and_(Image.private==True, Image.abuse_status==0,
-                     Image.category==self,
-                     Image.id.in_(local.request.session.get('secrets', [])))
+                and_(Image.private==True, Image.abuse==None,
+                     Image.category==self, Image.owner==local.request.user
+                )
             )
         ).all()
         return Image.query.get(choice(available_ids))
 
     def visible_images(self):
         return Image.query.filter(
-            or_(and_(Image.private==False, Image.abuse_status==0,
+            or_(and_(Image.private==False, Image.abuse==None,
                      Image.category==self),
-                and_(Image.private==True, Image.abuse_status==0,
-                     Image.category==self,
-                     Image.id.in_(local.request.session.get('secrets', [])))
+                and_(Image.private==True, Image.abuse==None,
+                     Image.category==self, Image.owner==local.request.user
+                )
             )
         ).all()
+

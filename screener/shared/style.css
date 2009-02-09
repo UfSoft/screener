@@ -59,7 +59,7 @@ div.contents div.message-error {
 
 .frame { float: left; padding: 10px; }
 
-.form, .form legend, .form input, .form button {
+.form, .form legend, .form input, .form button, .form textarea {
   background-color: #5d7685;
   -moz-border-radius: 7px;
   -webkit-border: 7px;
@@ -67,7 +67,7 @@ div.contents div.message-error {
 .form { -moz-border-radius: 10px; -webkit-border: 10px; }
 
 
-.form input, .form button { background-color: #fff; padding: 2px 5px; }
+.form input, .form button, .form textarea { background-color: #fff; padding: 2px 5px; }
 .form input[type="checkbox"] { background-color: #5d7685; }
 .form { margin: 30px; }
 .form legend {
