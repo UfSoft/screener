@@ -5,21 +5,19 @@
 #
 # License: BSD - Please view the LICENSE file for additional information.
 # ==============================================================================
-from random import choice
-from uuid import uuid4
+from datetime import datetime
 from hashlib import sha1, md5
 from os.path import basename, splitext, dirname, join
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
-
-from sqlalchemy import and_, or_
-from sqlalchemy.orm import (create_session, scoped_session, relation, Query,
-                            deferred)
-
-from sqlalchemy.ext.declarative import declarative_base
-
+from random import choice
 from screener.utils import application, local, local_manager, url_for
 from screener.utils.crypto import gen_pwhash, check_pwhash
+from sqlalchemy import (Column, Integer, String, DateTime, ForeignKey, Boolean,
+                        and_, or_)
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import (create_session, scoped_session, relation, Query,
+                            deferred, dynamic_loader, backref)
+from uuid import uuid4
+
 
 DeclarativeBase = declarative_base()
 metadata = DeclarativeBase.metadata
@@ -48,34 +46,38 @@ class User(DeclarativeBase):
     confirmed   = Column(Boolean, default=False)
     passwd_hash = Column(String)
     last_visit  = Column(DateTime, default=datetime.utcnow())
+    last_login  = Column(DateTime, default=datetime.utcnow())
+    is_admin    = Column(Boolean, default=False)
 
-    images      = None # relationed elsewhere
-    reports     = None # relationed elsewhere
-    categories  = None # relationed elsewhere
+    images      = dynamic_loader("Image", backref='owner')
+    reports     = dynamic_loader("Abuse", backref='owner')
+    categories  = dynamic_loader("Category", backref='owner')
 
     # Query Object
     query = session.query_property(Query)
 
-    def __init__(self, username=None, email=None, confirmed=False, passwd=None):
+    def __init__(self, username=None, email=None, confirmed=False, passwd=None,
+                 is_admin=False):
         self.uuid = uuid4().hex
         if username:
             self.username = username
         if email:
             self.email = email
-        if confirmed:
-            self.confirmed = confirmed
         if passwd:
             self.passwd_hash = gen_pwhash(passwd)
+        self.confirmed = confirmed
+        self.is_admin = is_admin
 
     def __repr__(self):
-        return "<User uuid:%s>" % self.uuid
+        return "<User (%s) UUID:%s>" % (self.username or 'annonymous', self.uuid)
 
     def authenticate(self, password):
         if self.confirmed and check_pwhash(self.passwd_hash, password):
-            self.last_visit = datetime.utcnow()
+            self.update_last_visit()
+            self.last_login = datetime.utcnow()
             session.commit()
             return True
-        return False # 401?
+        return False
 
     def update_last_visit(self):
         self.last_visit = datetime.utcnow()
@@ -83,11 +85,6 @@ class User(DeclarativeBase):
     def confirm(self, uuid):
         if uuid == self.uuid:
             self.confirmed = True
-
-#class UserAttribute(DeclarativeBase):
-#    uuid = Column('user_uuid', None, ForeignKey('users.uuid'))
-#    attr = Column(String)
-#    value = Column(String)
 
 
 class Abuse(DeclarativeBase):
@@ -102,7 +99,7 @@ class Abuse(DeclarativeBase):
     reporter_email = deferred(Column(String))
     owner_uid      = Column(None, ForeignKey('users.uuid'))
 
-    owner          = relation(User, backref='reports')
+    owner          = None   # Defined on User.reports
 
     # Query Object
     query = session.query_property(Query)
@@ -132,7 +129,7 @@ class Image(DeclarativeBase):
     # ForeignKey Association
     abuse         = relation(Abuse, backref='image', uselist=False,
                              cascade="all, delete, delete-orphan")
-    owner         = relation(User, backref='images')
+    owner         = None   # Defined on User.images
     category      = None # Associated elsewhere
 
     # Query Object
@@ -233,7 +230,7 @@ class Category(DeclarativeBase):
     # ForeignKey Association
     images      = relation(Image, backref="category",
                            cascade="all, delete, delete-orphan")
-    owner       = relation(User, backref='category')
+    owner       = None   # Defined on User.categories
 
     # Query Object
     query = session.query_property(Query)

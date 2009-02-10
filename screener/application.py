@@ -6,23 +6,21 @@
 # License: BSD - Please view the LICENSE file for additional information.
 # ==============================================================================
 
-import sys
 from ConfigParser import SafeConfigParser
+from genshi.core import Stream
 from os import path, makedirs
+from screener.database import session
+from screener.urls import url_map, handlers
+from screener.utils import (Request, Response, local, local_manager,
+    generate_template, ImageAbuseReported, ImageAbuseConfirmed, url_for)
+from screener.utils.crypto import gen_secret_key
+from sqlalchemy import create_engine
 from time import time
 from types import ModuleType
-from sqlalchemy import create_engine
-from werkzeug.utils import ClosingIterator, SharedDataMiddleware
-from werkzeug.exceptions import HTTPException, NotFound
+from werkzeug.exceptions import HTTPException, NotFound, Unauthorized
+from werkzeug.utils import ClosingIterator, SharedDataMiddleware, redirect
+import sys
 
-from screener.database import DeclarativeBase, session
-from screener.utils import (Request, Response, local, local_manager,
-                            generate_template, ImageAbuseReported,
-                            ImageAbuseConfirmed)
-from screener.utils.crypto import gen_secret_key
-from screener.urls import url_map, handlers
-
-from genshi.core import Stream
 
 #: path to shared data
 SHARED_DATA = path.join(path.dirname(__file__), 'shared')
@@ -38,7 +36,7 @@ class Screener(object):
     def __init__(self, instance_folder):
         self.instance_folder = path.abspath(instance_folder)
         self.url_map = url_map
-        self.setup_screener()
+        self.init_screener()
         self.database_engine = create_engine(config.database_uri,
                                              echo=config.database_echo)
 
@@ -52,7 +50,7 @@ class Screener(object):
         # free the context locals at the end of the request
         self._dispatch = local_manager.make_middleware(self._dispatch)
 
-    def setup_screener(self):
+    def init_screener(self):
         if not path.exists(self.instance_folder):
             makedirs(path.join(self.instance_folder))
         parser = SafeConfigParser()
@@ -88,9 +86,44 @@ class Screener(object):
         if not path.isdir(config.uploads_path):
             makedirs(config.uploads_path)
 
-    def init_database(self):
+    def setup_screener(self):
         """Called from the management script to generate the db."""
+        from sys import exit
+        from getpass import getpass
+        from screener.database import DeclarativeBase, User
+
         DeclarativeBase.metadata.create_all(bind=self.database_engine)
+
+        username = raw_input("Administrator Username [admin]:")
+        if not username:
+            username = 'admin'
+
+        while True:
+            email = raw_input("Administrator Email Address:")
+            if email:
+                break
+
+        def ask_passwd(confirm=False):
+            if confirm:
+                prompt = "Password Confirm:"
+            else:
+                prompt = "Administrator Password:"
+            while True:
+                user_input = getpass(prompt)
+                if user_input:
+                    break
+            return user_input
+
+        passwd = ask_passwd()
+        passwd_confirm = ask_passwd(True)
+        if passwd != passwd_confirm:
+            print "passwords do not match"
+            exit(1)
+
+        self.bind_to_context()
+        session.add(User(username=username, email=email, confirmed=True,
+                         passwd=passwd, is_admin=True))
+        session.commit()
 
     def bind_to_context(self):
         """
@@ -116,9 +149,9 @@ class Screener(object):
             request.endpoint = endpoint
             action = handlers[endpoint]
             response = action(request, **params)
-#            print type(response)
             if isinstance(response, Stream):
                 response = Response(response)
+
         except KeyError, e:
             print 'KeyError', e
             e.description = MESSAGE_404
@@ -135,12 +168,17 @@ class Screener(object):
             #    404:    Not Found
             #    409:    Resource Conflict
             #    410:    Resource Gone
+        except Unauthorized:
+            response = redirect(url_for('admin/login'))
         except HTTPException, e:
             response = e.get_response(environ)
 
         if request.session.should_save:
-            max_age = 60 * 60 * 24 * 31
-            expires = time() + max_age
+            if request.session.get('pmt'):
+                max_age = 60 * 60 * 24 * 31
+                expires = time() + max_age
+            else:
+                max_age = expires = None
             request.session.save_cookie(response, config.cookie_name,
                                         max_age=max_age, expires=expires,
                                         session_expires=expires)

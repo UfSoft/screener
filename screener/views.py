@@ -6,25 +6,19 @@
 # License: BSD - Please view the LICENSE file for additional information.
 # ==============================================================================
 
-import PIL
 from PIL import Image as PImage, ImageDraw, ImageFont
-from os import remove, makedirs, removedirs, symlink, fstat, getcwd, chdir
-from os.path import join, splitext, isfile, isdir, dirname, basename
-from screener.utils import generate_template
-from tempfile import mktemp
-from math import atan, degrees
-from screener.database import session, Category, Image, Abuse, User, and_, or_
-from screener.utils import (url_for, Response, ImageAbuseReported,
-                            ImageAbuseConfirmed)
-
-from werkzeug.exceptions import NotFound
-from werkzeug.utils import redirect
-from werkzeug.http import parse_etags, remove_entity_headers
-from mimetypes import guess_type
-
-from stat import ST_SIZE, ST_MTIME
-from time import asctime, gmtime, time
 from datetime import timedelta
+from math import atan, degrees
+from mimetypes import guess_type
+from os import remove, makedirs, removedirs, symlink, getcwd, chdir
+from os.path import join, splitext, isfile, isdir, dirname, basename, getsize
+from screener.database import session, Category, Image, Abuse, and_, or_
+from screener.utils import (url_for, Response, ImageAbuseReported,
+                            ImageAbuseConfirmed, generate_template)
+from tempfile import mktemp
+from werkzeug.exceptions import NotFound
+from werkzeug.http import remove_entity_headers
+from werkzeug.utils import redirect
 
 
 def categories_list(request):
@@ -199,7 +193,7 @@ def upload(request, category=None):
         if private:
             request.session.setdefault('flashes', []).append(
                 "Your hidden image can be found <a href=\"%s\">here</a>"
-                % url_for(image, 'image'))
+                % url_for(image, 'show'))
         if request.values.get('multiple'):
             return redirect(
                 url_for('upload', category=category.private and category.secret
@@ -264,9 +258,10 @@ def serve_image(request, category=None, image=None):
         raise ImageAbuseReported
 
     content_type = loaded.mimetype
-    picture = open(getattr(loaded, "%s_path" % request.endpoint), 'rb')
+    picture_path = getattr(loaded, "%s_path" % request.endpoint)
+    picture = open(picture_path, 'rb')
 
-    size = fstat(picture.fileno())[ST_SIZE]
+    size = getsize(picture_path)
     # This image won't change, allow caching it for a year
     expiry = loaded.stamp + timedelta(days=365)
 
@@ -284,11 +279,14 @@ def serve_image(request, category=None, image=None):
         return Response('', 304, headers=headers)
 
     def stream():
-        while True:
-            data = picture.read(2048)
-            if not data:
-                break
-            yield data
+        try:
+            while True:
+                data = picture.read(2048)
+                if not data:
+                    break
+                yield data
+        finally:
+            picture.close()
 
     return Response(stream(), content_type=content_type, headers=headers)
 

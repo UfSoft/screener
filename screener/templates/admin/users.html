@@ -1,0 +1,52 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="layout.html" />
+  <head>
+    <title>Users</title>
+      <script type="text/javascript" src="${shared_url('js/jquery.js')}" />
+      <script type="text/javascript" src="${shared_url('js/jquery.checkbox.js')}" />
+  </head>
+  <body>
+    <h1>Manage Users</h1>
+    <form action="" method="POST">
+      <table>
+        <thead>
+          <tr class="header">
+            <th class="sel">&nbsp;</th>
+            <th>Username</th>
+            <th>Email Address</th>
+            <th>Confirmed</th>
+            <th>Categories Count</th>
+            <th>Images Count</th>
+            <th>Reports Count</th>
+            <th>Last Visit</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr py:for="user in users">
+            <td class="sel"><input type="checkbox" name="uuid" value="${ user.uuid }"/></td>
+            <td>${ user.username }</td>
+            <td>${ user.email }</td>
+            <td>${ user.confirmed }</td>
+            <td>${ user.categories.count() }</td>
+            <td>${ user.images.count() }</td>
+            <td>${ user.reports.count() }</td>
+            <td>${ format_datetime(user.last_visit) }</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="buttons">
+        <input type="submit" name="delete" value="Delete Selected Users"/>
+      </div>
+    </form>
+    <script type="text/javascript">
+      $(document).ready(function() {
+        $("input[type=checkbox]").checkbox({
+          cls:'jquery-checkbox',
+          empty: "${ shared_url('imgs/empty.png') }"
+        });
+      });
+    </script>
+  </body>
+</html>

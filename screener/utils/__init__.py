@@ -67,7 +67,7 @@ def shared_url(filename):
 
 def format_datetime(obj):
     """Format a datetime object."""
-    return obj.strftime('%Y-%m-%d %H:%M')
+    return obj.strftime('%Y-%m-%d %H:%M:%S')
 
 class Request(BaseRequest, ETagRequestMixin):
     """Simple request subclass that allows to bind the object to the
@@ -75,6 +75,16 @@ class Request(BaseRequest, ETagRequestMixin):
     """
     def bind_to_context(self):
         local.request = self
+
+    def login(self, user, permanent=False):
+        self.user = user
+        self.session['uuid'] = user.uuid
+        self.session['lv'] = user.last_visit
+        if permanent:
+            self.session['pmt'] = permanent
+
+    def logout(self):
+        self.session.clear()
 
     def setup_cookie(self):
         from screener.database import User, session
@@ -86,15 +96,26 @@ class Request(BaseRequest, ETagRequestMixin):
         def new_user():
             user = User()
             session.add(user)
-            self.session['uuid'] = user.uuid
-            self.user = user
+            return user
 
         if 'uuid' not in self.session:
-            new_user()
+            self.login(new_user(), permanent=True)
+            self.session.setdefault('flashes', []).append(
+                "A unique cookie has been sent to your browser that "
+                "enables you to see your private images when browsing the "
+                "categories.<br>Otherwise, you can only access them by "
+                "their direct URL.")
         else:
-            self.user = User.query.get(self.session.get('uuid'))
-            if not self.user:
-                new_user()
+            user = User.query.get(self.session.get('uuid'))
+            if not user:
+                self.login(new_user(), permanent=True)
+                self.session.setdefault('flashes', []).append(
+                    "A unique cookie has been sent to your browser that "
+                    "enables you to see your private images when browsing the "
+                    "categories.<br>Otherwise, you can only access them by "
+                    "their direct URL.")
+            else:
+                self.login(user)
 
         self.user.update_last_visit()
         session.commit()
@@ -114,6 +135,3 @@ class Response(BaseResponse):
             response = response.render('html', encoding=None, doctype='html')
         BaseResponse.__init__(self, response, status, headers, mimetype,
                               content_type)
-
-def template(template_name):
-    """Templated response decorator"""

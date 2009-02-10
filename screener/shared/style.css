@@ -114,4 +114,10 @@ div.buttons { margin-top: 20px; }
 .jquery-checkbox-disabled img{ background-position: 0px -64px; }
 .jquery-checkbox-checked .jquery-checkbox-disabled img{ background-position: 0px -85px; }
 
-div.abuse a, div.abuse a:visited { font-size: 70%; color: #fff; text-decoration: none; }
+div.abuse a, div.abuse a:visited {
+  font-size: 70%; color: #fff; text-decoration: none; font-weight: bold;
+}
+
+.admin table tr th, .admin table tr td { white-space: nowrap; }
+.admin table tr td { padding: 0px 4px 0px 4px; }
+.admin table tr th.sel, .admin table tr td.sel { width: 1px; padding-left: 4px; }

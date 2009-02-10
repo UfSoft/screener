@@ -1,0 +1,33 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="layout.html" />
+  <head>
+    <title>Authenticate</title>
+  </head>
+  <body>
+    <fieldset class="form">
+      <legend>Authentication Needed</legend>
+      <form  action="" method="POST">
+        <table>
+          <tr>
+            <th><label for="username">Username:</label></th>
+            <td>
+              <input type="text" name="username"/>
+            </td>
+          </tr>
+          <tr>
+            <th><label for="password">Password:</label></th>
+            <td>
+              <input type="password" name="password"/>
+            </td>
+          </tr>
+        </table>
+        <div class="buttons">
+          <input type="submit" name="authenticate" value="Authenticate"/>
+        </div>
+        <input type="hidden" name="endpoint" value="${ request.endpoint }"/>
+      </form>
+    </fieldset>
+  </body>
+</html>

@@ -53,9 +53,9 @@ def action_runserver(instance_folder='./instance', hostname='0.0.0.0',
                use_reloader=use_reloader, use_debugger=use_debugger,
                use_evalex=use_evalex, threaded=threaded, processes=processes)
 
-def action_initdb(instance_folder='./instance'):
-    """Initialize the database"""
-    make_screener(instance_folder).init_database()
+def action_setup(instance_folder='./instance'):
+    """Setup Screener"""
+    make_screener(instance_folder).setup_screener()
 
 if __name__ == '__main__':
     script.run()

@@ -6,24 +6,32 @@
 # License: BSD - Please view the LICENSE file for additional information.
 # ==============================================================================
 
-from werkzeug.routing import Map, Rule
-from screener import views
+from werkzeug.routing import Map, Rule, Submount
+from screener import views, admin
 
 url_map = Map([
     Rule('/', redirect_to='upload'),
     Rule('/upload/', endpoint='upload', defaults={'category': None}),
     Rule('/upload/<category>', endpoint='upload'),
     Rule('/categories', endpoint='categories'),
-    Rule('/category/<category>', endpoint='category'),
-    Rule('/category/<category>/thumb/<image>', endpoint='thumb'),
-    Rule('/category/<category>/resized/<image>', endpoint='resized'),
-    Rule('/category/<category>/image/<image>', endpoint='image'),
-    Rule('/category/<category>/show/<image>', endpoint='show'),
-    Rule('/category/<category>/report/<image>', endpoint='abuse'),
-    Rule('/shared/<file>', endpoint='shared', build_only=True)
+    Submount('/category', [
+        Rule('/<category>', endpoint='category'),
+        Rule('/<category>/thumb/<image>', endpoint='thumb'),
+        Rule('/<category>/resized/<image>', endpoint='resized'),
+        Rule('/<category>/image/<image>', endpoint='image'),
+        Rule('/<category>/show/<image>', endpoint='show'),
+        Rule('/<category>/report/<image>', endpoint='abuse')
+    ]),
+    Rule('/shared/<file>', endpoint='shared', build_only=True),
+    Submount('/manage', [
+        Rule('/', endpoint='admin'),
+        Rule('/authenticate', endpoint='admin/login'),
+        Rule('/logout', endpoint='admin/logout'),
+    ])
 ])
 
 handlers = {
+    # Regular Views
     'show':         views.show_image,
     'index':        views.index,
     'image':        views.serve_image,
@@ -32,6 +40,11 @@ handlers = {
     'upload':       views.upload,
     'category':     views.category_list,
     'categories':   views.categories_list,
-    'abuse':        views.report_abuse
+    'abuse':        views.report_abuse,
+
+    # Administration Views
+    'admin':        admin.users,
+    'admin/login':  admin.login,
+    'admin/logout': admin.logout,
 }
 
