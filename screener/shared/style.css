@@ -118,6 +118,13 @@ div.abuse a, div.abuse a:visited {
   font-size: 70%; color: #fff; text-decoration: none; font-weight: bold;
 }
 
+.admin table { font-size: 70%; }
+.admin table tr td { border-bottom: 1px solid #ccc; }
 .admin table tr th, .admin table tr td { white-space: nowrap; }
-.admin table tr td { padding: 0px 4px 0px 4px; }
+.admin table tr th { white-space: nowrap; padding: 3px 4px; }
+.admin table tr td { padding: 0px 4px; vertical-align: middle; }
 .admin table tr th.sel, .admin table tr td.sel { width: 1px; padding-left: 4px; }
+.admin table.disk-usage { font-size: 90%; font-weight: normal; }
+.admin table.disk-usage tr td, .admin table.disk-usage tr th { text-align: center; }
+.admin table.disk-usage tr td { border-bottom: none; border-right: 1px solid #ccc; }
+.admin table.disk-usage tr td.last { border-right: none; }

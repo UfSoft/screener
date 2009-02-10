@@ -49,6 +49,7 @@ def generate_template(template_name, **context):
         url_for=url_for,
         shared_url=shared_url,
         format_datetime=format_datetime,
+        pretty_size=pretty_size,
         request=request
     )
     stream = template_loader.load(template_name).generate(**context)
@@ -68,6 +69,19 @@ def shared_url(filename):
 def format_datetime(obj):
     """Format a datetime object."""
     return obj.strftime('%Y-%m-%d %H:%M:%S')
+
+def pretty_size(size, format='%.1f'):
+    if not size:
+        return '0 bytes'
+    jump = 512
+    if size < jump:
+        return '%d bytes' % size
+    units = ['KB', 'MB', 'GB', 'TB']
+    i = 0
+    while size >= jump and i < len(units):
+        i += 1
+        size /= 1024.
+    return (format + ' %s') % (size, units[i - 1])
 
 class Request(BaseRequest, ETagRequestMixin):
     """Simple request subclass that allows to bind the object to the

@@ -12,7 +12,7 @@
   <py:for each="category in categories">
     <div class="frame${ category.private is True and ' secret' or ''}"
          py:with="image=category.random">
-      <a href="${ url_for(category) }" py:choose="">
+      <a href="${ url_for(category) }" py:choose="" py:if="image">
         <img class="slided ${ category.private is True and 'ibgcolorff4f00 igradientffffff ' or 'ibgcolor5d7685 '}itxtalt itxttitle"
              alt="${ category.name }" title="${ category.name }"
              src="${ url_for(image, 'thumb') }"

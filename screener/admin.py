@@ -5,11 +5,10 @@
 #
 # License: BSD - Please view the LICENSE file for additional information.
 # ==============================================================================
-from time import time
 from werkzeug.exceptions import Unauthorized
 from werkzeug.utils import redirect
 
-from screener.database import session, User
+from screener.database import session, User, Category
 from screener.utils import url_for, generate_template, Response
 
 def users(request):
@@ -39,3 +38,4 @@ def login(request):
 def logout(request):
     request.session.clear()
     return redirect(url_for('upload'))
+

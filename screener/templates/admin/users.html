@@ -17,21 +17,35 @@
             <th>Username</th>
             <th>Email Address</th>
             <th>Confirmed</th>
-            <th>Categories Count</th>
-            <th>Images Count</th>
-            <th>Reports Count</th>
+            <th>Categories</th>
+            <th>Images</th>
+            <th>Reports</th>
+            <th>Disk Usage</th>
             <th>Last Visit</th>
           </tr>
         </thead>
         <tbody>
           <tr py:for="user in users">
             <td class="sel"><input type="checkbox" name="uuid" value="${ user.uuid }"/></td>
-            <td>${ user.username }</td>
+            <td>${ user.username or user.uuid }</td>
             <td>${ user.email }</td>
             <td>${ user.confirmed }</td>
             <td>${ user.categories.count() }</td>
             <td>${ user.images.count() }</td>
             <td>${ user.reports.count() }</td>
+            <td>
+              <table class="disk-usage">
+                <tr>
+                  <th>Images</th><th>Resized</th><th>Thumbs</th><th>Abuse</th>
+                </tr>
+                <tr>
+                  <td>${ pretty_size(user.disk_usage.images) }</td>
+                  <td>${ pretty_size(user.disk_usage.resized) }</td>
+                  <td>${ pretty_size(user.disk_usage.thumbs) }</td>
+                  <td class="last">${ pretty_size(user.disk_usage.abuse) }</td>
+                </tr>
+              </table>
+            </td>
             <td>${ format_datetime(user.last_visit) }</td>
           </tr>
         </tbody>

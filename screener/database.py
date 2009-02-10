@@ -7,12 +7,12 @@
 # ==============================================================================
 from datetime import datetime
 from hashlib import sha1, md5
-from os.path import basename, splitext, dirname, join
+from os.path import basename, splitext, dirname, join, islink, getsize
 from random import choice
 from screener.utils import application, local, local_manager, url_for
 from screener.utils.crypto import gen_pwhash, check_pwhash
 from sqlalchemy import (Column, Integer, String, DateTime, ForeignKey, Boolean,
-                        and_, or_)
+                        PickleType, and_, or_)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import (create_session, scoped_session, relation, Query,
                             deferred, dynamic_loader, backref)
@@ -47,6 +47,8 @@ class User(DeclarativeBase):
     passwd_hash = Column(String)
     last_visit  = Column(DateTime, default=datetime.utcnow())
     last_login  = Column(DateTime, default=datetime.utcnow())
+    disk_usage  = deferred(Column(PickleType, default=dict(images=0, resized=0,
+                                                           thumbs=0, abuse=0)))
     is_admin    = Column(Boolean, default=False)
 
     images      = dynamic_loader("Image", backref='owner')
@@ -82,6 +84,26 @@ class User(DeclarativeBase):
     def update_last_visit(self):
         self.last_visit = datetime.utcnow()
 
+    def update_disk_usage(self):
+        images = resized = thumbs = abuse = 0
+        for image in self.images:
+            if image.abuse:
+                abuse += getsize(image.image_path) + getsize(image.thumb_path)
+                if not islink(image.resized_path):
+                    abuse += getsize(image.resized_path)
+            else:
+                images += getsize(image.image_path)
+                thumbs += getsize(image.thumb_path)
+                if not islink(image.resized_path):
+                    resized += getsize(image.resized_path)
+
+        self.disk_usage = dict(
+            images=images,
+            resized=resized,
+            thumbs=thumbs,
+            abuse=abuse
+        )
+
     def confirm(self, uuid):
         if uuid == self.uuid:
             self.confirmed = True
@@ -104,7 +126,8 @@ class Abuse(DeclarativeBase):
     # Query Object
     query = session.query_property(Query)
 
-    def __init__(self, reason, reporter_ip, reporter_email):
+    def __init__(self, image, reason, reporter_ip, reporter_email):
+        self.image = image
         self.reason = reason
         self.reporter_ip = reporter_ip
         self.reporter_email = reporter_email
@@ -228,8 +251,8 @@ class Category(DeclarativeBase):
     owner_uid   = Column(None, ForeignKey('users.uuid'))
 
     # ForeignKey Association
-    images      = relation(Image, backref="category",
-                           cascade="all, delete, delete-orphan")
+    images      = dynamic_loader(Image, backref="category",
+                                 cascade="all, delete, delete-orphan")
     owner       = None   # Defined on User.categories
 
     # Query Object
@@ -252,29 +275,41 @@ class Category(DeclarativeBase):
 
     @classmethod
     def visible(self):
+        if local.request.user.is_admin:
+            # User is an Admin, return all categories, his and not his
+            return Category.query.all()
+
         return Category.query.filter(
             or_(Category.private==False,
                 and_(Category.private==True,
-                     Category.owner==User.query.get(
-                        local.request.session.get('uuid')
-                     )
+                     Category.owner==local.request.user
                 )
             )
         ).all()
 
     @property
     def random(self):
-        available_ids = session.query(Image.id).filter(
-            or_(and_(Image.private==False, Image.abuse==None,
-                     Image.category==self),
-                and_(Image.private==True, Image.abuse==None,
-                     Image.category==self, Image.owner==local.request.user
+        if local.request.user.is_admin:
+            available_ids = session.query(Image.id).filter(
+                Image.category==self
+            ).all()
+        else:
+            available_ids = session.query(Image.id).filter(
+                or_(and_(Image.private==False, Image.abuse==None,
+                         Image.category==self),
+                    and_(Image.private==True, Image.abuse==None,
+                         Image.category==self, Image.owner==local.request.user
+                    )
                 )
-            )
-        ).all()
-        return Image.query.get(choice(available_ids))
+            ).all()
+        if available_ids:
+            return Image.query.get(choice(available_ids))
+        return []
 
     def visible_images(self):
+        if local.request.user.is_admin:
+            # User is an Admin, return all images
+            return self.images
         return Image.query.filter(
             or_(and_(Image.private==False, Image.abuse==None,
                      Image.category==self),

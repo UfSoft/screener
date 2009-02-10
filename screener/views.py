@@ -165,6 +165,11 @@ def upload(request, category=None):
             if getcwd() != current_cwd:
                 # Changed directories for symlink'ing, back to old CWD
                 chdir(current_cwd)
+        except OSError, error:
+            return generate_template('upload.html',
+                error="File already exists. Submitted the form twice?",
+                formfill=request.values,
+                category=category)
         except IOError:
             for path in (image_path, resized_path, thumbnail_path):
                 if isfile(path):
@@ -189,6 +194,9 @@ def upload(request, category=None):
                       private=private, submitter_ip=request.remote_addr)
         image.category = category
         session.add(image)
+        session.commit()
+        # :\   Double Commit!?
+        image.owner.update_disk_usage()
         session.commit()
         if private:
             request.session.setdefault('flashes', []).append(
@@ -252,10 +260,11 @@ def serve_image(request, category=None, image=None):
     if not loaded:
         raise NotFound("Requested image was not found")
 
-    if loaded.abuse and loaded.abuse.confirmed:
-        raise ImageAbuseConfirmed
-    elif loaded.abuse:
-        raise ImageAbuseReported
+    if not request.user.is_admin:
+        if loaded.abuse and loaded.abuse.confirmed:
+            raise ImageAbuseConfirmed
+        elif loaded.abuse:
+            raise ImageAbuseReported
 
     content_type = loaded.mimetype
     picture_path = getattr(loaded, "%s_path" % request.endpoint)
@@ -315,6 +324,9 @@ def report_abuse(request, category=None, image=None):
             return generate_template('abuse.html', category=category,
                 image=image, error="You need both your email address and a "
                                    "reason why you're reporting this abuse.")
-        image.abuse = Abuse(reason, reporter_ip, reporter_email)
+
+        abuse = Abuse(image, reason, reporter_ip, reporter_email)
+        session.add(abuse)
+        image.owner.update_disk_usage()
         session.commit()
     return generate_template('abuse.html', category=category, image=image)
