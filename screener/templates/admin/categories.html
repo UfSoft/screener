@@ -1,0 +1,54 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="layout.html" />
+  <head>
+    <title>Categories</title>
+      <script type="text/javascript" src="${shared_url('js/jquery.js')}" />
+      <script type="text/javascript" src="${shared_url('js/jquery.checkbox.js')}" />
+  </head>
+  <body>
+    <h1>Manage Categories</h1>
+    <form action="" method="POST">
+      <table>
+        <thead>
+          <tr class="header">
+            <th class="sel">&nbsp;</th>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Private</th>
+            <th>Owner</th>
+            <th>Stamp</th>
+            <th>Images</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr py:for="category in categories">
+            <td class="sel"><input type="checkbox" name="name" value="${ category.name }"/></td>
+            <td>${ category.name }</td>
+            <td>${ category.description }</td>
+            <td>
+              <input type="checkbox" name="private" value="${ category.name }"
+                     checked="${ category.private and 'checked' or None }"/>
+            </td>
+            <td>${ category.owner.username or  category.owner.uuid }</td>
+            <td>${ category.stamp }</td>
+            <td>${ category.images.count() }</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="buttons">
+        <input type="submit" name="update" value="Update Selected Categories"/>
+        <input type="submit" name="delete" value="Delete Selected Categories"/>
+      </div>
+    </form>
+    <script type="text/javascript">
+      $(document).ready(function() {
+        $("input[type=checkbox]").checkbox({
+          cls:'jquery-checkbox',
+          empty: "${ shared_url('imgs/empty.png') }"
+        });
+      });
+    </script>
+  </body>
+</html>

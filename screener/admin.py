@@ -11,13 +11,6 @@ from werkzeug.utils import redirect
 from screener.database import session, User, Category
 from screener.utils import url_for, generate_template, Response
 
-def users(request):
-    if not request.user.is_admin:
-        raise Unauthorized
-    for user in User.query.all():
-        print user, user.categories.count()
-    return generate_template('admin/users.html', users=User.query.all())
-
 def login(request):
     if request.method== "POST":
         username = request.values.get('username')
@@ -39,3 +32,33 @@ def logout(request):
     request.session.clear()
     return redirect(url_for('upload'))
 
+def users(request):
+    _users = User.query.all()
+    if request.method == 'POST':
+        if 'delete' in request.values:
+            for user in _users:
+                if user.uuid in request.values.getlist('uuid'):
+                    session.delete(user)
+            session.commit()
+            _users = User.query.all()
+    return generate_template('admin/users.html', users=_users)
+
+
+def categories(request):
+    _categories=Category.query.all()
+
+    if request.method == 'POST':
+        if 'delete' in request.values:
+            print 'DELETE', request.values.getlist('name')
+            for category in _categories:
+                if category.name in request.values.getlist('name'):
+                    session.delete(category)
+            session.commit()
+            _categories=Category.query.all()
+        elif 'update' in request.values:
+            print 'UPDATE', request.values.getlist('private')
+            for category in _categories:
+                category.private = category.name in \
+                                            request.values.getlist('private')
+    return generate_template('admin/categories.html',
+                             categories=_categories)

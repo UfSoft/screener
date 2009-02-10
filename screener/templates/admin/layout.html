@@ -23,7 +23,8 @@
         <div class="header">
           <span class="copyright">Screener &copy; 2009 &mdash; UfSoft.org</span>
           <ul class="nav">
-            ${ navigation('categories', 'Users') }
+            ${ navigation('admin/categories', 'Categories') }
+            ${ navigation('admin/users', 'Users') }
             ${ navigation('admin', 'Administration Home', first=True) }
             <li class="first">
               logged in as ${ request.user.username }

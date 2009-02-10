@@ -24,7 +24,9 @@ url_map = Map([
     ]),
     Rule('/shared/<file>', endpoint='shared', build_only=True),
     Submount('/manage', [
-        Rule('/', endpoint='admin'),
+        Rule('/', endpoint='admin', redirect_to='/manage/users'),
+        Rule('/users', endpoint='admin/users'),
+        Rule('/categories', endpoint='admin/categories'),
         Rule('/authenticate', endpoint='admin/login'),
         Rule('/logout', endpoint='admin/logout'),
     ])
@@ -43,8 +45,10 @@ handlers = {
     'abuse':        views.report_abuse,
 
     # Administration Views
-    'admin':        admin.users,
-    'admin/login':  admin.login,
-    'admin/logout': admin.logout,
+    'admin':            admin.users,
+    'admin/login':      admin.login,
+    'admin/logout':     admin.logout,
+    'admin/users':      admin.users,
+    'admin/categories': admin.categories
 }
 

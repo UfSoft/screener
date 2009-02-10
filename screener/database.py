@@ -7,6 +7,7 @@
 # ==============================================================================
 from datetime import datetime
 from hashlib import sha1, md5
+from os import remove, removedirs
 from os.path import basename, splitext, dirname, join, islink, getsize
 from random import choice
 from screener.utils import application, local, local_manager, url_for
@@ -15,7 +16,8 @@ from sqlalchemy import (Column, Integer, String, DateTime, ForeignKey, Boolean,
                         PickleType, and_, or_)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import (create_session, scoped_session, relation, Query,
-                            deferred, dynamic_loader, backref)
+                            deferred, dynamic_loader, backref, MapperExtension,
+                            EXT_CONTINUE)
 from uuid import uuid4
 
 
@@ -32,6 +34,12 @@ def new_db_session():
     """
     return create_session(application.database_engine, autoflush=True,
                           autocommit=False)
+
+class DeleteMapperExtension(MapperExtension):
+    def after_delete(self, mapper, connection, instance):
+        if hasattr(instance, '__delete__'):
+            instance.__delete__()
+        return EXT_CONTINUE
 
 # and create a new global session factory.  Calling this object gives
 # you the current active session
@@ -51,9 +59,12 @@ class User(DeclarativeBase):
                                                            thumbs=0, abuse=0)))
     is_admin    = Column(Boolean, default=False)
 
-    images      = dynamic_loader("Image", backref='owner')
-    reports     = dynamic_loader("Abuse", backref='owner')
-    categories  = dynamic_loader("Category", backref='owner')
+    images      = dynamic_loader("Image", backref='owner',
+                                 cascade="all, delete, delete-orphan")
+    reports     = dynamic_loader("Abuse", backref='owner',
+                                 cascade="all, delete, delete-orphan")
+    categories  = dynamic_loader("Category", backref='owner',
+                                 cascade="all, delete, delete-orphan")
 
     # Query Object
     query = session.query_property(Query)
@@ -133,8 +144,10 @@ class Abuse(DeclarativeBase):
         self.reporter_email = reporter_email
         self.owner = local.request.user
 
+
 class Image(DeclarativeBase):
     __tablename__ = 'images'
+    __mapper_args__ = {'extension': DeleteMapperExtension()}
 
     # Table Columns
     id             = Column(String(40), primary_key=True)
@@ -237,6 +250,20 @@ class Image(DeclarativeBase):
         etag = md5(self.id)
         etag.update(str(self.stamp))
         return etag.hexdigest()
+
+
+    def __delete__(self):
+        for path in [self.image_path, self.thumb_path, self.resized_path]:
+            try:
+                remove(path)
+            except OSError:
+                # File does not exist!?
+                pass
+        try:
+            removedirs(self.path)
+        except OSError:
+            # Directory not empty
+            pass
 
 
 class Category(DeclarativeBase):
