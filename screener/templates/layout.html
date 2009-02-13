@@ -1,6 +1,6 @@
 <html xmlns="http://www.w3.org/1999/xhtml"
       xmlns:py="http://genshi.edgewall.org/" py:strip="">
-  <py:match path="head" once="true">
+  <py:match path="head" once="false">
     <head py:attrs="select('@*')">
       <title py:with="title = list(select('title/text()'))"><py:if
              test="title">${title} — </py:if>Screener</title>
@@ -15,7 +15,7 @@
       <a href="${ url_for(endpoint, **kwargs) }" py:strip="match">${ title }</a>
     </li>
   </py:def>
-  <py:match path="body" once="true">
+  <py:match path="body" once="false">
     <body py:attrs="select('@*')">
       <div class="bodywrapper">
         <div class="header">

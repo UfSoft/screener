@@ -14,7 +14,7 @@
         <thead>
           <tr class="header">
             <th class="sel">&nbsp;</th>
-            <th>Username</th>
+            <th>Username/UUID</th>
             <th>Email Address</th>
             <th>Confirmed</th>
             <th>Categories</th>
@@ -27,7 +27,7 @@
         <tbody>
           <tr py:for="user in users">
             <td class="sel"><input type="checkbox" name="uuid" value="${ user.uuid }"/></td>
-            <td>${ user.username or user.uuid }</td>
+            <td>${ user.username and "%(username)s (%(uuid)s)" % user.dict() or user.uuid }</td>
             <td>${ user.email }</td>
             <td>${ user.confirmed }</td>
             <td>${ user.categories.count() }</td>

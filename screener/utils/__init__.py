@@ -9,7 +9,7 @@ import screener
 from os import path
 from genshi import Stream
 from genshi.filters.html import HTMLFormFiller
-from genshi.template import TemplateLoader
+from genshi.template import TemplateLoader, MarkupTemplate, NewTextTemplate
 from werkzeug.wrappers import BaseRequest, BaseResponse, ETagRequestMixin
 from werkzeug.local import Local, LocalManager
 from werkzeug.contrib.securecookie import SecureCookie
@@ -52,7 +52,11 @@ def generate_template(template_name, **context):
         pretty_size=pretty_size,
         request=request
     )
-    stream = template_loader.load(template_name).generate(**context)
+    if template_name.endswith('.txt'):
+        cls = NewTextTemplate
+    else:
+        cls = MarkupTemplate
+    stream = template_loader.load(template_name, cls=cls).generate(**context)
     if formfill:
         return stream | HTMLFormFiller(data=formfill)
     return stream
@@ -60,7 +64,12 @@ def generate_template(template_name, **context):
 def url_for(endpoint, *args, **kwargs):
     if hasattr(endpoint, '__url__'):
         return endpoint.__url__(*args, **kwargs)
-    return application.url_adapter.build(endpoint, kwargs)
+    if 'force_external' in kwargs:
+        force_external = kwargs.pop('force_external')
+    else:
+        force_external = False
+    return application.url_adapter.build(endpoint, kwargs,
+                                         force_external=force_external)
 
 def shared_url(filename):
     """Returns a URL to a shared resource."""
@@ -83,6 +92,9 @@ def pretty_size(size, format='%.1f'):
         size /= 1024.
     return (format + ' %s') % (size, units[i - 1])
 
+def flash(message):
+    request.session.setdefault('flashes', []).append(message)
+
 class Request(BaseRequest, ETagRequestMixin):
     """Simple request subclass that allows to bind the object to the
     current context.
@@ -96,6 +108,7 @@ class Request(BaseRequest, ETagRequestMixin):
         self.session['lv'] = user.last_visit
         if permanent:
             self.session['pmt'] = permanent
+        print user
 
     def logout(self):
         self.session.clear()
@@ -130,7 +143,6 @@ class Request(BaseRequest, ETagRequestMixin):
                     "their direct URL.")
             else:
                 self.login(user)
-
         self.user.update_last_visit()
         session.commit()
 

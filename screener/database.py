@@ -81,6 +81,16 @@ class User(DeclarativeBase):
         self.confirmed = confirmed
         self.is_admin = is_admin
 
+    def dict(self):
+        return {
+            'uuid': self.uuid,
+            'username': self.username,
+            'email': self.email,
+            'confirmed': self.confirmed,
+            'last_visit': self.last_visit,
+            'last_login': self.last_login
+        }
+
     def __repr__(self):
         return "<User (%s) UUID:%s>" % (self.username or 'annonymous', self.uuid)
 
@@ -124,13 +134,14 @@ class Abuse(DeclarativeBase):
     __tablename__ = 'reports'
 
     # Table Columns
-    id             = Column('image_id', None, ForeignKey('images.id'),
-                            primary_key=True)
+    hash           = Column(String(40), primary_key=True)
+    issued         = deferred(Column(DateTime))
     confirmed      = Column(Boolean, default=False)
     reason         = deferred(Column(String))
     reporter_ip    = deferred(Column(String(15)))
     reporter_email = deferred(Column(String))
     owner_uid      = Column(None, ForeignKey('users.uuid'))
+    image_id       = Column(None, ForeignKey('images.id'))
 
     owner          = None   # Defined on User.reports
 
@@ -143,6 +154,18 @@ class Abuse(DeclarativeBase):
         self.reporter_ip = reporter_ip
         self.reporter_email = reporter_email
         self.owner = local.request.user
+        self.issued = datetime.utcnow()
+        confirm_hash = sha1(self.owner.uuid)
+        confirm_hash.update(image.id)
+        confirm_hash.update(reason)
+        confirm_hash.update(reporter_ip)
+        confirm_hash.update(reporter_email)
+        confirm_hash.update(str(self.issued))
+        self.hash = confirm_hash.hexdigest()
+
+    def __url__(self, include_hash=True, **kwargs):
+        return url_for('report', hash=include_hash and self.hash or None,
+                       **kwargs)
 
 
 class Image(DeclarativeBase):

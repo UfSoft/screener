@@ -14,6 +14,7 @@ from screener.urls import url_map, handlers
 from screener.utils import (Request, Response, local, local_manager,
     generate_template, ImageAbuseReported, ImageAbuseConfirmed, url_for)
 from screener.utils.crypto import gen_secret_key
+from screener.utils.notification import NotificationSystem
 from sqlalchemy import create_engine
 from time import time
 from types import ModuleType
@@ -50,6 +51,9 @@ class Screener(object):
         # free the context locals at the end of the request
         self._dispatch = local_manager.make_middleware(self._dispatch)
 
+        # Attach the notification system
+        self.notification = NotificationSystem(config.notification)
+
     def init_screener(self):
         if not path.exists(self.instance_folder):
             makedirs(path.join(self.instance_folder))
@@ -67,6 +71,15 @@ class Screener(object):
             parser.set('watermark', 'optional', 'true')
             parser.set('watermark', 'font', '')
             parser.set('watermark', 'text', 'Screener')
+            parser.set('notification', 'enabled', 'true')
+            parser.set('notification', 'smtp_server', '')
+            parser.set('notification', 'smtp_port', '25')
+            parser.set('notification', 'smtp_user', '')
+            parser.set('notification', 'smtp_pass', '')
+            parser.set('notification', 'smtp_from', '')
+            parser.set('notification', 'from_name', 'Screener')
+            parser.set('notification', 'reply_to', '')
+            parser.set('notification', 'use_tls', 'false')
             parser.write(open(config_file, 'w'))
         else:
             parser.readfp(open(config_file))
@@ -78,13 +91,25 @@ class Screener(object):
         config.max_size = parser.getint('main', 'max_size')
         config.secret_key = parser.get('main', 'secret_key', raw=True)
         config.cookie_name = parser.get('main', 'cookie_name')
-        config.watermark_optional = parser.getboolean('watermark', 'optional')
-        config.watermark_font = parser.get('watermark', 'font')
-        config.watermark_text = parser.get('watermark', 'text')
-        self.config = config
 
+        config.watermark = watermark = ModuleType('config.watermark')
+        watermark.optional = parser.getboolean('watermark', 'optional')
+        watermark.font = parser.get('watermark', 'font')
+        watermark.text = parser.get('watermark', 'text')
+
+        config.notification = notification = ModuleType('config.notification')
+        notification.enabled = parser.getboolean('notification', 'enabled')
+        notification.smtp_server = parser.get('notification', 'smtp_server')
+        notification.smtp_port = parser.getint('notification', 'smtp_port')
+        notification.smtp_user = parser.get('notification', 'smtp_user')
+        notification.smtp_pass = parser.get('notification', 'smtp_pass')
+        notification.smtp_from = parser.get('notification', 'smtp_from')
+        notification.from_name = parser.get('notification', 'from_name')
+        notification.reply_to =  parser.get('notification', 'reply_to')
+        notification.use_tls = parser.getboolean('notification', 'use_tls')
         if not path.isdir(config.uploads_path):
             makedirs(config.uploads_path)
+        self.config = config
 
     def setup_screener(self):
         """Called from the management script to generate the db."""
@@ -94,20 +119,20 @@ class Screener(object):
 
         DeclarativeBase.metadata.create_all(bind=self.database_engine)
 
-        username = raw_input("Administrator Username [admin]:")
+        username = raw_input("Administrator Username [admin]: ")
         if not username:
             username = 'admin'
 
         while True:
-            email = raw_input("Administrator Email Address:")
+            email = raw_input("Administrator Email Address: ")
             if email:
                 break
 
         def ask_passwd(confirm=False):
             if confirm:
-                prompt = "Password Confirm:"
+                prompt = "Password Confirm: "
             else:
-                prompt = "Administrator Password:"
+                prompt = "Administrator Password: "
             while True:
                 user_input = getpass(prompt)
                 if user_input:
@@ -140,6 +165,7 @@ class Screener(object):
         self.bind_to_context()
         request = Request(environ)
         request.config = config
+        request.notification = self.notification
         request.bind_to_context()
         request.setup_cookie()
 

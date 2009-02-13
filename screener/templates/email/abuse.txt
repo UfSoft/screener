@@ -1,0 +1,24 @@
+You, or someone posing as you, has used this email address to issue an abuse
+report for an image shown at Screener, also attached in this email.
+
+{% if report.reporter_ip %}\
+The abuse report was issued the ip address (${ report.reporter_ip }).
+{% end %}\
+
+The reason invoked was:
+ ------8<------8<------8<------8<------8<------8<------8<------8<------8<------
+{% for line in report.reason.splitlines() %}\
+  ${ line }
+{% end %}\
+ ------8<------8<------8<------8<------8<------8<------8<------8<------8<------
+
+In order to confirm this abuse report, please go to the following address:
+  ${ url_for(report, force_external=True) }
+
+If the above line is broken, go to the following URL and insert the given hash:
+   URL: ${ url_for(report, include_hash=False, force_external=True) }
+  HASH: ${ report.hash }
+
+--
+Screener - Your free image hosting application
+${ url_for('index', force_external=True) }

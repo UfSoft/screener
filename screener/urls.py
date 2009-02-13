@@ -10,10 +10,14 @@ from werkzeug.routing import Map, Rule, Submount
 from screener import views, admin
 
 url_map = Map([
-    Rule('/', redirect_to='upload'),
+    Rule('/', endpoint='index', redirect_to='upload'),
     Rule('/upload/', endpoint='upload', defaults={'category': None}),
     Rule('/upload/<category>', endpoint='upload'),
     Rule('/categories', endpoint='categories'),
+    Submount('/abuse', [
+        Rule('/confirm', endpoint='report', defaults={'hash': None}),
+        Rule('/confirm/<hash>', endpoint='report'),
+    ]),
     Submount('/category', [
         Rule('/<category>', endpoint='category'),
         Rule('/<category>/thumb/<image>', endpoint='thumb'),
@@ -43,6 +47,7 @@ handlers = {
     'category':     views.category_list,
     'categories':   views.categories_list,
     'abuse':        views.report_abuse,
+    'report':       views.report_abuse_confirm,
 
     # Administration Views
     'admin':            admin.users,

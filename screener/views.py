@@ -13,7 +13,7 @@ from mimetypes import guess_type
 from os import remove, makedirs, removedirs, symlink, getcwd, chdir
 from os.path import join, splitext, isfile, isdir, dirname, basename, getsize
 from screener.database import session, Category, Image, Abuse, and_, or_
-from screener.utils import (url_for, Response, ImageAbuseReported,
+from screener.utils import (url_for, Response, ImageAbuseReported, flash,
                             ImageAbuseConfirmed, generate_template)
 from tempfile import mktemp
 from werkzeug.exceptions import NotFound
@@ -111,7 +111,7 @@ def upload(request, category=None):
             image_path = join(category_path, filename + ext)
             # Original Image
             watermark_text = request.values.get('watermark_text')
-            watermark_font = request.config.watermark_font
+            watermark_font = request.config.watermark.font
             if watermark_font and watermark_text:
                 original = image.convert("RGBA")
                 original_width, original_height = original.size
@@ -211,8 +211,8 @@ def upload(request, category=None):
 
     return generate_template(
         'upload.html', category=category,
-        watermark_text=request.config.watermark_text,
-        watermark_optional=request.config.watermark_optional)
+        watermark_text=request.config.watermark.text,
+        watermark_optional=request.config.watermark.optional)
 
 
 def show_image(request, category=None, image=None):
@@ -316,6 +316,10 @@ def report_abuse(request, category=None, image=None):
     if not image:
         raise NotFound("Requested image was not found")
 
+    if image.abuse:
+        flash("An abuse report for this image already exists")
+        return redirect(url_for('index'))
+
     if request.method == 'POST':
         reason = request.values.get('reason')
         reporter_ip = request.remote_addr
@@ -327,6 +331,32 @@ def report_abuse(request, category=None, image=None):
 
         abuse = Abuse(image, reason, reporter_ip, reporter_email)
         session.add(abuse)
+
+        request.notification.sendmail("Image Abuse Report Confirmation",
+                                      'abuse.txt', {'report': abuse},
+                                      reporter_email)
+
         image.owner.update_disk_usage()
         session.commit()
     return generate_template('abuse.html', category=category, image=image)
+
+
+def report_abuse_confirm(request, hash=None):
+    hash = request.values.get('confirm_hash', hash)
+    if not hash:
+        flash("Please insert the hash you were given")
+        return generate_template('abuse_confirm.html')
+    else:
+        report = Abuse.query.get(hash)
+        if not report:
+            flash("There is no report to confirm on the URL you used")
+            return redirect(url_for('index'))
+        elif report and report.confirmed:
+            flash("The abuse report was already confirmed")
+            return redirect(url_for('index'))
+        report.confirmed = True
+        session.commit()
+        flash("The abuse report is now confirmed")
+        return redirect(url_for('index'))
+    return generate_template('abuse_confirm.html')
+

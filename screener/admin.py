@@ -33,6 +33,8 @@ def logout(request):
     return redirect(url_for('upload'))
 
 def users(request):
+    if not request.user.is_admin:
+        raise Unauthorized
     _users = User.query.all()
     if request.method == 'POST':
         if 'delete' in request.values:
@@ -45,6 +47,8 @@ def users(request):
 
 
 def categories(request):
+    if not request.user.is_admin:
+        raise Unauthorized
     _categories=Category.query.all()
 
     if request.method == 'POST':
