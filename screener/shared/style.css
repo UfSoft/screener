@@ -35,7 +35,8 @@ ul.nav li.first { border-left: none; }
 ul.nav li a, ul.nav li a:visited {
   color: #fff; text-decoration: none;
 }
-ul.nav li.active, ul.nav li a:hover { color: #2c8fc8; text-decoration: none; }
+ul.nav li.active { color: lightgreen; text-decoration: none; }
+ul.nav li a:hover { color: #2c8fc8; text-decoration: none; }
 
 div.contents {
   margin: 0 auto 0 auto;
@@ -89,7 +90,7 @@ div.contents div.message-error {
   padding: 0 auto 0 auto;
 }
 .form table tr.header th { text-align: center; }
-.form table tr th { text-align: right; }
+.form table tr th { text-align: right; white-space: nowrap; }
 .form table tr td { text-align: left; width: 85%; }
 .form table tr span.help {
   font-size: 60%; text-align: center; font-style: italic;
@@ -128,3 +129,4 @@ div.abuse a, div.abuse a:visited {
 .admin table.disk-usage tr td, .admin table.disk-usage tr th { text-align: center; }
 .admin table.disk-usage tr td { border-bottom: none; border-right: 1px solid #ccc; }
 .admin table.disk-usage tr td.last { border-right: none; }
+span.confirmed { color: lightgreen; }

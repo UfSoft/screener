@@ -1,0 +1,34 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:xi="http://www.w3.org/2001/XInclude">
+  <xi:include href="../layout.html" />
+  <head>
+    <title>Reset Password</title>
+  </head>
+  <body>
+    <fieldset class="form">
+      <legend>Reset Password</legend>
+      <form  action="" method="POST">
+        <table>
+          <tr>
+            <th><label for="email">Email:</label></th>
+            <td>
+              <input type="text" name="email"/>
+            </td>
+          </tr>
+          <tr>
+            <th><label for="password">New Password:</label></th>
+            <td><input type="password" name="password"/></td>
+          </tr>
+          <tr>
+            <th><label for="password_confirm">New Confirm Password:</label></th>
+            <td><input type="password" name="password_confirm"/></td>
+          </tr>
+        </table>
+        <div class="buttons">
+          <input type="submit" name="reset" value="Reset Password"/>
+        </div>
+      </form>
+    </fieldset>
+  </body>
+</html>

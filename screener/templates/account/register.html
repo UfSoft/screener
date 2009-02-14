@@ -1,13 +1,13 @@
 <html xmlns="http://www.w3.org/1999/xhtml"
       xmlns:py="http://genshi.edgewall.org/"
       xmlns:xi="http://www.w3.org/2001/XInclude">
-  <xi:include href="layout.html" />
+  <xi:include href="../layout.html" />
   <head>
-    <title>Authenticate</title>
+    <title>Register</title>
   </head>
   <body>
     <fieldset class="form">
-      <legend>Authentication Needed</legend>
+      <legend>Register With Screener</legend>
       <form  action="" method="POST">
         <table>
           <tr>
@@ -17,16 +17,27 @@
             </td>
           </tr>
           <tr>
+            <th><label for="email">Email:</label></th>
+            <td>
+              <input type="text" name="email"/>
+            </td>
+          </tr>
+          <tr>
             <th><label for="password">Password:</label></th>
             <td>
               <input type="password" name="password"/>
             </td>
           </tr>
+          <tr>
+            <th><label for="password">Confirm Password:</label></th>
+            <td>
+              <input type="password" name="password_confirm"/>
+            </td>
+          </tr>
         </table>
         <div class="buttons">
-          <input type="submit" name="authenticate" value="Authenticate"/>
+          <input type="submit" name="register" value="Register"/>
         </div>
-        <input type="hidden" name="endpoint" value="${ request.endpoint }"/>
       </form>
     </fieldset>
   </body>

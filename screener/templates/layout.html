@@ -28,6 +28,22 @@
                             category=category.private and category.secret or category.name,
                             first=True) }
             </py:if>
+            <py:if test="request.user.confirmed">
+            <li class="first">&nbsp;&mdash;</li>
+            <py:if test="request.user.is_admin">
+            ${ navigation('admin', 'Administration') }
+            </py:if>
+            ${ navigation('account.prefs', 'My Account') }
+            <li class="first">
+              logged in as ${ request.user.username }
+              (<a href="${ url_for('account.logout') }">logout</a>)
+            </li>
+            </py:if>
+            <py:if test="not request.user.confirmed">
+            <li class="first">&nbsp;&mdash;</li>
+            ${ navigation('account.register', 'Register') }
+            ${ navigation('account.login', 'Login', first=True) }
+            </py:if>
           </ul>
         </div>
         <div class="contents">
@@ -36,6 +52,11 @@
               ${ Markup(error) }
             </div>
           </py:if>
+          <py:for each="flash in request.session.pop('errors', [])">
+            <div class="message message-error">
+              ${ Markup(flash) }
+            </div>
+          </py:for>
           <py:for each="flash in request.session.pop('flashes', [])">
             <div class="message">
               ${ Markup(flash) }

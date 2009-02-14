@@ -12,7 +12,7 @@ from math import atan, degrees
 from mimetypes import guess_type
 from os import remove, makedirs, removedirs, symlink, getcwd, chdir
 from os.path import join, splitext, isfile, isdir, dirname, basename, getsize
-from screener.database import session, Category, Image, Abuse, and_, or_
+from screener.database import session, User, Category, Image, Abuse, and_, or_
 from screener.utils import (url_for, Response, ImageAbuseReported, flash,
                             ImageAbuseConfirmed, generate_template)
 from tempfile import mktemp
@@ -21,12 +21,16 @@ from werkzeug.http import remove_entity_headers
 from werkzeug.utils import redirect
 
 
+
+
 def categories_list(request):
+    """Return the available list of categories"""
     return generate_template('category_list.html',
                              categories=Category.visible())
 
 
 def category_list(request, category=None):
+    """Return the available list of images under a specific category"""
     if not category:
         raise NotFound("Category not found.")
     category = Category.query.filter(or_(Category.name==category,
@@ -36,11 +40,8 @@ def category_list(request, category=None):
     return generate_template('category.html', category=category)
 
 
-def index(request):
-    return generate_template('index.html')
-
-
 def upload(request, category=None):
+    """Upload an image"""
     if category:
         category = Category.query.filter(or_(Category.name==category,
                                              Category.secret==category)).first()
@@ -199,9 +200,8 @@ def upload(request, category=None):
         image.owner.update_disk_usage()
         session.commit()
         if private:
-            request.session.setdefault('flashes', []).append(
-                "Your hidden image can be found <a href=\"%s\">here</a>"
-                % url_for(image, 'show'))
+            flash("Your hidden image can be found <a href=\"%s\">here</a>" %
+                  url_for(image, 'show'))
         if request.values.get('multiple'):
             return redirect(
                 url_for('upload', category=category.private and category.secret
@@ -216,6 +216,7 @@ def upload(request, category=None):
 
 
 def show_image(request, category=None, image=None):
+    """Show the resized version of an image"""
     category = Category.query.filter(or_(Category.name==category,
                                          Category.secret==category)).first()
     filename, extension = splitext(image)
@@ -241,8 +242,11 @@ def show_image(request, category=None, image=None):
 
     return generate_template('image.html', image=image)
 
-def serve_image(request, category=None, image=None):
+def serve_image(request, leecher=None, category=None, image=None):
+    """Serve the images"""
+
     print 'should have served image?', image, type(image), request.endpoint, category
+
     category = Category.query.filter(or_(Category.name==category,
                                          Category.secret==category)).first()
 
@@ -359,4 +363,3 @@ def report_abuse_confirm(request, hash=None):
         flash("The abuse report is now confirmed")
         return redirect(url_for('index'))
     return generate_template('abuse_confirm.html')
-

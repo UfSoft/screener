@@ -45,11 +45,12 @@ class DeleteMapperExtension(MapperExtension):
 # you the current active session
 session = scoped_session(lambda: new_db_session(), local_manager.get_ident)
 
+
 class User(DeclarativeBase):
     __tablename__ = 'users'
 
-    uuid        = Column(String(40), primary_key=True)
-    username    = Column(String)
+    uuid        = Column(String(32), primary_key=True)
+    username    = Column(String, index=True)
     email       = Column(String)
     confirmed   = Column(Boolean, default=False)
     passwd_hash = Column(String)
@@ -65,6 +66,10 @@ class User(DeclarativeBase):
                                  cascade="all, delete, delete-orphan")
     categories  = dynamic_loader("Category", backref='owner',
                                  cascade="all, delete, delete-orphan")
+    changes     = relation("Change", backref='owner',
+                           cascade="all, delete, delete-orphan")
+    leecher     = relation("Leecher", backref='owner',
+                           cascade="all, delete, delete-orphan")
 
     # Query Object
     query = session.query_property(Query)
@@ -72,8 +77,7 @@ class User(DeclarativeBase):
     def __init__(self, username=None, email=None, confirmed=False, passwd=None,
                  is_admin=False):
         self.uuid = uuid4().hex
-        if username:
-            self.username = username
+        self.username = username
         if email:
             self.email = email
         if passwd:
@@ -125,9 +129,62 @@ class User(DeclarativeBase):
             abuse=abuse
         )
 
-    def confirm(self, uuid):
-        if uuid == self.uuid:
-            self.confirmed = True
+
+class Change(DeclarativeBase):
+    __tablename__ = 'persistent'
+
+    hash = Column('id', String(32), primary_key=True)
+    name = Column(String)
+    value = Column(String)
+    owner_uid = Column(None, ForeignKey('users.uuid'))
+
+    # ForeignKey Association
+    owner     = None   # Defined on User.changes
+
+    # Query Object
+    query = session.query_property(Query)
+
+
+    def __init__(self, name=None, value=None):
+        self.hash = uuid4().hex
+        self.name = name
+        self.value = value
+
+    def __url__(self, include_hash=True, **kwargs):
+        return url_for('account.confirm',
+                       hash=include_hash and self.hash or None, **kwargs)
+
+
+class Leecher(DeclarativeBase):
+    __tablename__ = 'leechers'
+
+    key       = Column(String(32), primary_key=True)
+    owner_uid = Column(None, ForeignKey('users.uuid'))
+
+    # ForeignKey Association
+    owner     = None   # Defined on User.categories
+
+    domains   = relation("LeechDomain", backref='domains',
+                         cascade="all, delete, delete-orphan")
+
+    # Query Object
+    query = session.query_property(Query)
+
+    def __init__(self, owner):
+        key = md5(application.config.secret_key)
+        key.update(owner.uuid)
+        self.key = key.hexdigest()
+
+
+class LeechDomain(DeclarativeBase):
+    __tablename__ = 'leecher_domains'
+
+    id        = Column(Integer, primary_key=True, autoincrement=True)
+    domain    = Column(String, nullable=False)
+    leech_key = Column(None, ForeignKey('leechers.key'))
+
+    # Query Object
+    query = session.query_property(Query)
 
 
 class Abuse(DeclarativeBase):

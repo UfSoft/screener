@@ -25,10 +25,13 @@
           <ul class="nav">
             ${ navigation('admin/categories', 'Categories') }
             ${ navigation('admin/users', 'Users') }
-            ${ navigation('admin', 'Administration Home', first=True) }
+            ${ navigation('index', 'Home', first=True) }
+            <li>
+              <a href="${ url_for('account.prefs') }">Preferences</a>&nbsp;&nbsp;&mdash;
+            </li>
             <li class="first">
               logged in as ${ request.user.username }
-              (<a href="${ url_for('admin/logout') }">logout</a>)&nbsp;&nbsp;&mdash;
+              (<a href="${ url_for('account.logout') }">logout</a>)
             </li>
           </ul>
         </div>

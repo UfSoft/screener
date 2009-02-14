@@ -92,8 +92,9 @@ def pretty_size(size, format='%.1f'):
         size /= 1024.
     return (format + ' %s') % (size, units[i - 1])
 
-def flash(message):
-    request.session.setdefault('flashes', []).append(message)
+def flash(message, error=False):
+    request.session.setdefault(error and 'errors' or 'flashes',
+                               []).append(message)
 
 class Request(BaseRequest, ETagRequestMixin):
     """Simple request subclass that allows to bind the object to the
@@ -125,6 +126,7 @@ class Request(BaseRequest, ETagRequestMixin):
             session.add(user)
             return user
 
+        print 1234, request.session
         if 'uuid' not in self.session:
             self.login(new_user(), permanent=True)
             self.session.setdefault('flashes', []).append(

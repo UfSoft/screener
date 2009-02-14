@@ -16,6 +16,7 @@ from screener.utils import (Request, Response, local, local_manager,
 from screener.utils.crypto import gen_secret_key
 from screener.utils.notification import NotificationSystem
 from sqlalchemy import create_engine
+from sqlalchemy.exceptions import InvalidRequestError
 from time import time
 from types import ModuleType
 from werkzeug.exceptions import HTTPException, NotFound, Unauthorized
@@ -68,6 +69,7 @@ class Screener(object):
             parser.set('main', 'max_size', '10485760') # 10 Mb
             parser.set('main', 'secret_key', gen_secret_key())
             parser.set('main', 'cookie_name', 'screener_cookie')
+            parser.set('main', 'screener_domain', 'localhost')
             parser.set('watermark', 'optional', 'true')
             parser.set('watermark', 'font', '')
             parser.set('watermark', 'text', 'Screener')
@@ -91,6 +93,7 @@ class Screener(object):
         config.max_size = parser.getint('main', 'max_size')
         config.secret_key = parser.get('main', 'secret_key', raw=True)
         config.cookie_name = parser.get('main', 'cookie_name')
+        config.domain = parser.get('main', 'screener_domain')
 
         config.watermark = watermark = ModuleType('config.watermark')
         watermark.optional = parser.getboolean('watermark', 'optional')
@@ -169,9 +172,13 @@ class Screener(object):
         request.bind_to_context()
         request.setup_cookie()
 
-        self.url_adapter = url_map.bind_to_environ(environ)
+        self.url_adapter = url_map.bind_to_environ(
+            environ, server_name=config.domain
+        )
+
         try:
             endpoint, params = self.url_adapter.match()
+            print 12345, endpoint, params
             request.endpoint = endpoint
             action = handlers[endpoint]
             response = action(request, **params)
@@ -208,9 +215,12 @@ class Screener(object):
             request.session.save_cookie(response, config.cookie_name,
                                         max_age=max_age, expires=expires,
                                         session_expires=expires)
+        try:
+            return ClosingIterator(response(environ, start_response),
+                                   [local_manager.cleanup, session.remove])
+        except InvalidRequestError:
+            session.rollback()
 
-        return ClosingIterator(response(environ, start_response),
-                               [local_manager.cleanup, session.remove])
 
     def __call__(self, environ, start_response):
         """Just forward a WSGI call to the first internal middleware."""
