@@ -45,23 +45,27 @@ def preferences(request):
     if not request.user.confirmed:
         raise Unauthorized
     if request.method == 'POST':
+        request.user.show_adult_content = \
+                            request.values.get('show_adult_content') == 'yes'
+
+        session.commit()
         new_email = request.values.get('email')
         new_password = request.values.get('password')
         new_password_confirm = request.values.get('password_confirm')
         if new_password and not new_password_confirm:
             flash("You need to confirm your password")
-            return generate_template('preferences.html',
+            return generate_template('account/preferences.html',
                                      user=request.user,
                                      formfill=request.values)
         elif not new_password and new_password_confirm:
             flash("Can't confirm an empty password")
-            return generate_template('preferences.html',
+            return generate_template('account/preferences.html',
                                      user=request.user,
                                      formfill=request.values)
         elif new_password and new_password_confirm:
             if new_password != new_password_confirm:
                 flash("Passwords do not match")
-                return generate_template('preferences.html',
+                return generate_template('account/preferences.html',
                                          user=request.user,
                                          formfill=request.values)
             request.user.password = new_password
@@ -122,6 +126,14 @@ def register(request):
                 flash("All fields are required", True)
                 return generate_template('account/register.html',
                                          formfill=request.values)
+
+        agree_to_tos = request.values.get('tos') == 'yes'
+        if not request.user.confirmed and not agree_to_tos:
+            error = 'You must agree to the <a href="%s">Terms of Service</a>.'
+            flash('You must agree to the <a href="%s">Terms of Service</a>.' %
+                  url_for('tos'), True)
+            return generate_template('account/register.html',
+                                     formfill=request.values)
         if User.query.filter(User.username==username).first():
             flash("The username you asked for is already taken", True)
             return generate_template('account/register.html',
@@ -134,7 +146,8 @@ def register(request):
             flash("Passwords do not match", True)
             return generate_template('account/register.html',
                                      formfill=request.values)
-        user = User(username, email, passwd=password)
+        user = User(username, email, passwd=password,
+                    agreed_to_tos=agree_to_tos)
         session.add(user)
         change = Change('confirmed', False)
         change.owner = user
@@ -162,3 +175,28 @@ def confirm(request, hash=None):
         session.commit()
         flash("The requested change was confirmed")
         return redirect(url_for('index'))
+
+def anonymous_preferences(request):
+    if request.method == 'POST':
+        agree_to_tos = request.values.get('tos') == 'yes'
+        if not request.user.confirmed and not agree_to_tos:
+            error = 'You must agree to the <a href="%s">Terms of Service</a>.'
+            flash('You must agree to the <a href="%s">Terms of Service</a>.' %
+                  url_for('tos'), True)
+            return generate_template('adult_content.html',
+                                     formfill=request.values)
+
+        request.user.show_adult_content = \
+                            request.values.get('show_adult_content') == 'yes'
+        request.user.agreed_to_tos = agree_to_tos
+        session.commit()
+        redirect_to = request.session.get('redirect_to')
+        redirect_params = request.session.get('redirect_params')
+        if not redirect_to:
+            redirect_to = url_for('index')
+        else:
+            redirect_to = url_for(redirect_to, **redirect_params)
+            del request.session['redirect_to']
+            del request.session['redirect_params']
+        return redirect(redirect_to)
+    return generate_template('adult_content.html')

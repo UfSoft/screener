@@ -66,12 +66,27 @@
                 string in order to see the image again.</span>
             </td>
           </tr>
+          <tr>
+            <th><label for="adult_content">Adult Content:</label></th>
+            <td><input type="checkbox" name="adult_content" value="yes"/>
+              <span class="help">If this is an adult content image, please check
+                this box.</span>
+            </td>
+          </tr>
           <tr py:if="watermark_optional">
             <th><label for="watermark_text">Watermark Text:</label></th>
             <td>
               <input type="text" size="29" name="watermark_text"
                      value="${watermark_text}"/>
               <span class="help">The full size image will be <em>branded</em> with this text.</span>
+            </td>
+          </tr>
+          <tr py:if="not request.user.confirmed">
+            <th><label for="tos">Terms of Service:</label></th>
+            <td>
+             <input type="checkbox" name="tos" value="yes">
+               I Agree to the <a href="${ url_for('tos') }">Terms of Service</a>.
+             </input>
             </td>
           </tr>
         </table>

@@ -12,7 +12,8 @@ from os import path, makedirs
 from screener.database import session
 from screener.urls import url_map, handlers
 from screener.utils import (Request, Response, local, local_manager,
-    generate_template, ImageAbuseReported, ImageAbuseConfirmed, url_for)
+    generate_template, ImageAbuseReported, ImageAbuseConfirmed, url_for,
+    AdultContentException)
 from screener.utils.crypto import gen_secret_key
 from screener.utils.notification import NotificationSystem
 from sqlalchemy import create_engine
@@ -70,6 +71,7 @@ class Screener(object):
             parser.set('main', 'secret_key', gen_secret_key())
             parser.set('main', 'cookie_name', 'screener_cookie')
             parser.set('main', 'screener_domain', 'localhost')
+            parser.set('main', 'host_country', '')
             parser.set('watermark', 'optional', 'true')
             parser.set('watermark', 'font', '')
             parser.set('watermark', 'text', 'Screener')
@@ -94,6 +96,12 @@ class Screener(object):
         config.secret_key = parser.get('main', 'secret_key', raw=True)
         config.cookie_name = parser.get('main', 'cookie_name')
         config.domain = parser.get('main', 'screener_domain')
+        config.host_country = parser.get('main', 'host_country')
+        if not config.host_country:
+            import sys
+            print "You need to configure 'host_country' on the config"
+            print "That's required for the Terms of Service display"
+            sys.exit()
 
         config.watermark = watermark = ModuleType('config.watermark')
         watermark.optional = parser.getboolean('watermark', 'optional')
@@ -192,6 +200,12 @@ class Screener(object):
             e.name = "Not Found"
             response = Response(generate_template('4xx.html', exception=e))
             response.status_code = 404
+        except AdultContentException, e:
+            request.session['redirect_to'] = endpoint
+            request.session['redirect_params'] = params
+            response = Response(generate_template('adult_content.html',
+                                                  exception=e))
+            response.status_code = e.code
         except (NotFound, ImageAbuseReported, ImageAbuseConfirmed), e:
             if e.code == 404:
                 e.description = MESSAGE_404
@@ -202,7 +216,7 @@ class Screener(object):
             #    409:    Resource Conflict
             #    410:    Resource Gone
         except Unauthorized:
-            response = redirect(url_for('admin/login'))
+            response = redirect(url_for('account.login'))
         except HTTPException, e:
             response = e.get_response(environ)
 

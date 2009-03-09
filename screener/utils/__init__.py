@@ -42,6 +42,9 @@ class ImageAbuseConfirmed(NotFound):
     description = "Abuse Reported. Image Removed."
     code = 410
 
+class AdultContentException(ImageAbuseReported):
+    description = "STOP. Adult Content."
+
 def generate_template(template_name, **context):
     """Load and generate a template."""
     formfill = context.pop('formfill', None)

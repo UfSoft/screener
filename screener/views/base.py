@@ -14,7 +14,8 @@ from os import remove, makedirs, removedirs, symlink, getcwd, chdir
 from os.path import join, splitext, isfile, isdir, dirname, basename, getsize
 from screener.database import session, User, Category, Image, Abuse, and_, or_
 from screener.utils import (url_for, Response, ImageAbuseReported, flash,
-                            ImageAbuseConfirmed, generate_template)
+                            ImageAbuseConfirmed, generate_template,
+                            AdultContentException)
 from tempfile import mktemp
 from werkzeug.exceptions import NotFound
 from werkzeug.http import remove_entity_headers
@@ -46,6 +47,13 @@ def upload(request, category=None):
         category = Category.query.filter(or_(Category.name==category,
                                              Category.secret==category)).first()
     if request.method == 'POST':
+        agree_to_tos = request.values.get('tos') == 'yes'
+        if not request.user.confirmed and not agree_to_tos:
+            error = 'You must agree to the <a href="%s">Terms of Service</a>.'
+            return generate_template( 'upload.html',
+                                      error=error % url_for('tos'),
+                                      formfill=request.values,
+                                      category=category)
         uploaded_file = request.files['uploaded_file']
         if not uploaded_file:
             return generate_template('upload.html', error="No file uploaded",
@@ -190,9 +198,11 @@ def upload(request, category=None):
             remove(tempfile_path)
 
         private = request.values.get('private') == 'yes'
+        adult_content = request.values.get('adult_content') == 'yes'
         image = Image(image_path, mimetype,
                       description=request.values.get('description'),
-                      private=private, submitter_ip=request.remote_addr)
+                      private=private, submitter_ip=request.remote_addr,
+                      adult_content=adult_content)
         image.category = category
         session.add(image)
         session.commit()
@@ -236,6 +246,8 @@ def show_image(request, category=None, image=None):
         raise ImageAbuseConfirmed
     elif image.abuse:
         raise ImageAbuseReported
+    if image.adult_content and not request.user.show_adult_content:
+        raise AdultContentException
 
     image.views += 1
     session.commit()
@@ -269,6 +281,8 @@ def serve_image(request, leecher=None, category=None, image=None):
             raise ImageAbuseConfirmed
         elif loaded.abuse:
             raise ImageAbuseReported
+    if not request.user.show_adult_content and loaded.adult_content:
+        raise AdultContentException
 
     content_type = loaded.mimetype
     picture_path = getattr(loaded, "%s_path" % request.endpoint)
@@ -363,3 +377,6 @@ def report_abuse_confirm(request, hash=None):
         flash("The abuse report is now confirmed")
         return redirect(url_for('index'))
     return generate_template('abuse_confirm.html')
+
+def tos(request):
+    return generate_template('tos.html')

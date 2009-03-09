@@ -1,9 +1,11 @@
 <html xmlns="http://www.w3.org/1999/xhtml"
       xmlns:py="http://genshi.edgewall.org/"
       xmlns:xi="http://www.w3.org/2001/XInclude">
-  <xi:include href="layout.html" />
+  <xi:include href="../layout.html" />
   <head>
-    <title>Prefences</title>
+    <title>Preferences</title>
+    <script type="text/javascript" src="${shared_url('js/jquery.js')}" />
+    <script type="text/javascript" src="${shared_url('js/jquery.checkbox.js')}" />
   </head>
   <body>
     <fieldset class="form">
@@ -28,11 +30,26 @@
             <th><label for="password_confirm">Confirm Password:</label></th>
             <td><input type="password" name="password_confirm"/></td>
           </tr>
+          <tr>
+            <th><label for="show_adult_content">Show Adult Content:</label></th>
+            <td>
+              <input type="checkbox" name="show_adult_content" value="yes"
+                     checked="${ request.user.show_adult_content and 'checked' or None}"/>
+            </td>
+          </tr>
         </table>
         <div class="buttons" style="">
           <input type="submit" name="update" value="Update"/>
         </div>
       </form>
     </fieldset>
+    <script type="text/javascript">
+      $(document).ready(function() {
+        $("input[type=checkbox]").checkbox({
+          cls:'jquery-checkbox',
+          empty: "${ shared_url('imgs/empty.png') }"
+        });
+      });
+    </script>
   </body>
 </html>

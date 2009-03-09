@@ -21,6 +21,7 @@
         <div class="header">
           <span class="copyright">Screener &copy; 2009 &mdash; UfSoft.org</span>
           <ul class="nav">
+            ${ navigation('tos', 'Terms of Service') }
             ${ navigation('categories', 'Categories') }
             ${ navigation('upload', 'Upload', first=request.endpoint!='category') }
             <py:if test="category and request.endpoint == 'category'">

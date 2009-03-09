@@ -49,33 +49,36 @@ session = scoped_session(lambda: new_db_session(), local_manager.get_ident)
 class User(DeclarativeBase):
     __tablename__ = 'users'
 
-    uuid        = Column(String(32), primary_key=True)
-    username    = Column(String, index=True)
-    email       = Column(String)
-    confirmed   = Column(Boolean, default=False)
-    passwd_hash = Column(String)
-    last_visit  = Column(DateTime, default=datetime.utcnow())
-    last_login  = Column(DateTime, default=datetime.utcnow())
-    disk_usage  = deferred(Column(PickleType, default=dict(images=0, resized=0,
-                                                           thumbs=0, abuse=0)))
-    is_admin    = Column(Boolean, default=False)
+    uuid                = Column(String(32), primary_key=True)
+    username            = Column(String, index=True)
+    email               = Column(String)
+    confirmed           = Column(Boolean, default=False)
+    passwd_hash         = Column(String)
+    last_visit          = Column(DateTime, default=datetime.utcnow())
+    last_login          = Column(DateTime, default=datetime.utcnow())
+    disk_usage          = deferred(Column(PickleType,
+                                         default=dict(images=0, resized=0,
+                                                      thumbs=0, abuse=0)))
+    show_adult_content  = Column(Boolean, default=False)
+    agreed_to_tos       = Column(Boolean, default=False)
+    is_admin            = Column(Boolean, default=False)
 
-    images      = dynamic_loader("Image", backref='owner',
-                                 cascade="all, delete, delete-orphan")
-    reports     = dynamic_loader("Abuse", backref='owner',
-                                 cascade="all, delete, delete-orphan")
-    categories  = dynamic_loader("Category", backref='owner',
-                                 cascade="all, delete, delete-orphan")
-    changes     = relation("Change", backref='owner',
-                           cascade="all, delete, delete-orphan")
-    leecher     = relation("Leecher", backref='owner',
-                           cascade="all, delete, delete-orphan")
+    images              = dynamic_loader("Image", backref='owner',
+                                         cascade="all, delete, delete-orphan")
+    reports             = dynamic_loader("Abuse", backref='owner',
+                                         cascade="all, delete, delete-orphan")
+    categories          = dynamic_loader("Category", backref='owner',
+                                         cascade="all, delete, delete-orphan")
+    changes             = relation("Change", backref='owner',
+                                   cascade="all, delete, delete-orphan")
+    leecher             = relation("Leecher", backref='owner',
+                                   cascade="all, delete, delete-orphan")
 
     # Query Object
     query = session.query_property(Query)
 
     def __init__(self, username=None, email=None, confirmed=False, passwd=None,
-                 is_admin=False):
+                 is_admin=False, show_adult_content=False, agreed_to_tos=False):
         self.uuid = uuid4().hex
         self.username = username
         if email:
@@ -83,6 +86,8 @@ class User(DeclarativeBase):
         if passwd:
             self.passwd_hash = gen_pwhash(passwd)
         self.confirmed = confirmed
+        self.show_adult_content = show_adult_content
+        self.agreed_to_tos = agreed_to_tos
         self.is_admin = is_admin
 
     def dict(self):
@@ -238,6 +243,7 @@ class Image(DeclarativeBase):
     description    = Column(String, default=u'')
     submitter_ip   = Column(String(15))
     private        = Column(Boolean, default=False)
+    adult_content  = Column(Boolean, default=False)
     views          = Column(Integer, default=0)
     category_name  = Column(None, ForeignKey('categories.name'))
     owner_uid      = Column(None, ForeignKey('users.uuid'))
@@ -252,7 +258,7 @@ class Image(DeclarativeBase):
     query = session.query_property(Query)
 
     def __init__(self, filepath, mimetype, description=None,
-                 private=False, submitter_ip=None):
+                 private=False, submitter_ip=None, adult_content=False):
         self.stamp = datetime.utcnow()
         image_id = sha1(filepath)
         image_id.update(str(self.stamp))
@@ -262,6 +268,7 @@ class Image(DeclarativeBase):
         self.mimetype = mimetype
         self.description = description
         self.private = private
+        self.adult_content = adult_content
         self.submitter_ip = submitter_ip
         self.owner = local.request.user
 
@@ -396,32 +403,37 @@ class Category(DeclarativeBase):
 
     @property
     def random(self):
-        if local.request.user.is_admin:
+        user = local.request.user
+        if user.is_admin:
             available_ids = session.query(Image.id).filter(
                 Image.category==self
             ).all()
         else:
+            user = local.request.user
             available_ids = session.query(Image.id).filter(
-                or_(and_(Image.private==False, Image.abuse==None,
-                         Image.category==self),
+                or_(and_(Image.category==self,
+                         Image.private==False, Image.abuse==None,
+                         Image.adult_content==user.show_adult_content),
                     and_(Image.private==True, Image.abuse==None,
-                         Image.category==self, Image.owner==local.request.user
+                         Image.category==self, Image.owner==user
                     )
                 )
             ).all()
-        if available_ids:
-            return Image.query.get(choice(available_ids))
+            if available_ids:
+                return Image.query.get(choice(available_ids))
         return []
 
     def visible_images(self):
-        if local.request.user.is_admin:
+        user = local.request.user
+        if user.is_admin:
             # User is an Admin, return all images
             return self.images
         return Image.query.filter(
-            or_(and_(Image.private==False, Image.abuse==None,
-                     Image.category==self),
+            or_(and_(Image.category==self,
+                     Image.private==False, Image.abuse==None,
+                     Image.adult_content==user.show_adult_content),
                 and_(Image.private==True, Image.abuse==None,
-                     Image.category==self, Image.owner==local.request.user
+                     Image.category==self, Image.owner==user
                 )
             )
         ).all()

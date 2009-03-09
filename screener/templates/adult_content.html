@@ -1,39 +1,27 @@
 <html xmlns="http://www.w3.org/1999/xhtml"
       xmlns:py="http://genshi.edgewall.org/"
       xmlns:xi="http://www.w3.org/2001/XInclude">
-  <xi:include href="../layout.html" />
+  <xi:include href="layout.html" />
   <head>
-    <title>Register</title>
+    <title>STOP: Adult Content.</title>
     <script type="text/javascript" src="${shared_url('js/jquery.js')}" />
     <script type="text/javascript" src="${shared_url('js/jquery.checkbox.js')}" />
   </head>
   <body>
+    <div class="message message-error">STOP: Adult Content.</div>
+    <center>
+      <img alt="STOP: Adult Content." title="STOP: Adult Content."
+           src="${shared_url('imgs/adult_content.png')}"/>
+    </center>
     <fieldset class="form">
-      <legend>Register With Screener</legend>
-      <form  action="" method="POST">
+      <legend>Show Adult Content</legend>
+      <form  action="${ url_for('account.anonpref') }" method="POST">
         <table>
           <tr>
-            <th><label for="username">Username:</label></th>
+            <th><label for="show_adult_content">Show Adult Content:</label></th>
             <td>
-              <input type="text" name="username"/>
-            </td>
-          </tr>
-          <tr>
-            <th><label for="email">Email:</label></th>
-            <td>
-              <input type="text" name="email"/>
-            </td>
-          </tr>
-          <tr>
-            <th><label for="password">Password:</label></th>
-            <td>
-              <input type="password" name="password"/>
-            </td>
-          </tr>
-          <tr>
-            <th><label for="password">Confirm Password:</label></th>
-            <td>
-              <input type="password" name="password_confirm"/>
+              <input type="checkbox" name="show_adult_content" value="yes"
+                     checked="${ request.user.show_adult_content and 'checked' or None}"/>
             </td>
           </tr>
           <tr>
@@ -45,8 +33,8 @@
             </td>
           </tr>
         </table>
-        <div class="buttons">
-          <input type="submit" name="register" value="Register"/>
+        <div class="buttons" style="">
+          <input type="submit" name="update" value="Update"/>
         </div>
       </form>
     </fieldset>
