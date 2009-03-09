@@ -412,7 +412,9 @@ class Category(DeclarativeBase):
             user = local.request.user
             available_ids = session.query(Image.id).filter(
                 or_(and_(Image.category==self,
-                         Image.private==False, Image.abuse==None),
+                         Image.private==False, Image.abuse==None,
+                         Image.adult_content.in_([False,
+                                                  user.show_adult_content])),
                     and_(Image.private==True, Image.abuse==None,
                          Image.category==self, Image.owner==user
                     )
@@ -430,7 +432,7 @@ class Category(DeclarativeBase):
         return Image.query.filter(
             or_(and_(Image.category==self,
                      Image.private==False, Image.abuse==None,
-                     Image.adult_content==user.show_adult_content),
+                     Image.adult_content.in_([False, user.show_adult_content])),
                 and_(Image.private==True, Image.abuse==None,
                      Image.category==self, Image.owner==user
                 )
