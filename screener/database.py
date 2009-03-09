@@ -412,15 +412,14 @@ class Category(DeclarativeBase):
             user = local.request.user
             available_ids = session.query(Image.id).filter(
                 or_(and_(Image.category==self,
-                         Image.private==False, Image.abuse==None,
-                         Image.adult_content==user.show_adult_content),
+                         Image.private==False, Image.abuse==None),
                     and_(Image.private==True, Image.abuse==None,
                          Image.category==self, Image.owner==user
                     )
                 )
             ).all()
-            if available_ids:
-                return Image.query.get(choice(available_ids))
+        if available_ids:
+            return Image.query.get(choice([id[0] for id in available_ids]))
         return []
 
     def visible_images(self):

@@ -257,8 +257,6 @@ def show_image(request, category=None, image=None):
 def serve_image(request, leecher=None, category=None, image=None):
     """Serve the images"""
 
-    print 'should have served image?', image, type(image), request.endpoint, category
-
     category = Category.query.filter(or_(Category.name==category,
                                          Category.secret==category)).first()
 

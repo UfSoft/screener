@@ -189,7 +189,6 @@ class Screener(object):
 
         try:
             endpoint, params = self.url_adapter.match()
-            print 12345, endpoint, params
             request.endpoint = endpoint
             action = handlers[endpoint]
             response = action(request, **params)
@@ -197,7 +196,6 @@ class Screener(object):
                 response = Response(response)
 
         except KeyError, e:
-            print 'KeyError', e
             e.description = MESSAGE_404
             e.status = 404
             e.name = "Not Found"

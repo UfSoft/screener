@@ -112,7 +112,6 @@ class Request(BaseRequest, ETagRequestMixin):
         self.session['lv'] = user.last_visit
         if permanent:
             self.session['pmt'] = permanent
-        print user
 
     def logout(self):
         self.session.clear()
@@ -129,7 +128,6 @@ class Request(BaseRequest, ETagRequestMixin):
             session.add(user)
             return user
 
-        print 1234, request.session
         if 'uuid' not in self.session:
             self.login(new_user(), permanent=True)
             self.session.setdefault('flashes', []).append(
