@@ -145,19 +145,19 @@ def upload(request, category=None):
                 mask = watermark.convert("L").point(lambda x: min(x, 55))
                 watermark.putalpha(mask)
                 original.paste(watermark, None, watermark)
-                original.save(image_path, extension)
+                original.save(image_path, extension, optimize=1)
             else:
-                image.save(image_path, extension)
+                image.save(image_path, extension, optimize=1)
 
             # Resized version
             resized_path = join(category_path, filename + '.resized' + ext)
             if image_width > 1100:
                 if watermark_font and watermark_text:
                     original.thumbnail((1100, 1100), PImage.ANTIALIAS)
-                    original.save(resized_path, extension)
+                    original.save(resized_path, extension, optimize=1)
                 else:
                     image.thumbnail((1100, 1100), PImage.ANTIALIAS)
-                    image.save(resized_path, extension)
+                    image.save(resized_path, extension, optimize=1)
             else:
                 chdir(dirname(image_path))
                 symlink(basename(image_path), basename(resized_path))
@@ -166,7 +166,7 @@ def upload(request, category=None):
             thumbnail_path = join(category_path, filename + '.thumbnail' + ext)
             if image_width > 200 or image_height > 200:
                 image.thumbnail((200, 200), PImage.ANTIALIAS)
-                image.save(thumbnail_path, extension)
+                image.save(thumbnail_path, extension, optimize=1)
             else:
                 chdir(dirname(image_path))
                 symlink(basename(image_path), basename(thumbnail_path))
