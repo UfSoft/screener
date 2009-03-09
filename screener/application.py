@@ -89,7 +89,8 @@ class Screener(object):
             parser.write(open(config_file, 'w'))
         else:
             parser.readfp(open(config_file))
-        parser.set('main', 'here', self.instance_folder)
+
+        parser.set('DEFAULT', 'here', self.instance_folder)
 
         config.database_uri = parser.get('main', 'database_uri')
         config.database_echo = parser.getboolean('main', 'database_echo')
