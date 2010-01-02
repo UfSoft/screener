@@ -183,9 +183,10 @@ class Screener(object):
         request.bind_to_context()
         request.setup_cookie()
 
-        self.url_adapter = url_map.bind_to_environ(
-            environ, server_name=config.domain
-        )
+#        self.url_adapter = url_map.bind_to_environ(
+#            environ, server_name=config.domain
+#        )
+        self.url_adapter = url_map.bind_to_environ(environ)
 
         try:
             endpoint, params = self.url_adapter.match()

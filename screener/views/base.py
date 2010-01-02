@@ -22,8 +22,6 @@ from werkzeug.http import remove_entity_headers
 from werkzeug.utils import redirect
 
 
-
-
 def categories_list(request):
     """Return the available list of categories"""
     return generate_template('category_list.html',
@@ -154,10 +152,10 @@ def upload(request, category=None):
             if image_width > 1100:
                 if watermark_font and watermark_text:
                     original.thumbnail((1100, 1100), PImage.ANTIALIAS)
-                    original.save(resized_path, extension, optimize=1)
+                    original.save(resized_path, extension, optimize=1, quality=30)
                 else:
                     image.thumbnail((1100, 1100), PImage.ANTIALIAS)
-                    image.save(resized_path, extension, optimize=1)
+                    image.save(resized_path, extension, optimize=1, quality=30)
             else:
                 chdir(dirname(image_path))
                 symlink(basename(image_path), basename(resized_path))

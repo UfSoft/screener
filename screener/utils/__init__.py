@@ -5,8 +5,10 @@
 #
 # License: BSD - Please view the LICENSE file for additional information.
 # ==============================================================================
+
 import screener
 from os import path
+from datetime import datetime, timedelta
 from genshi import Stream
 from genshi.filters.html import HTMLFormFiller
 from genshi.template import TemplateLoader, MarkupTemplate, NewTextTemplate
@@ -117,7 +119,7 @@ class Request(BaseRequest, ETagRequestMixin):
         self.session.clear()
 
     def setup_cookie(self):
-        from screener.database import User, session
+        from screener.database import User, session, and_
         self.session = SecureCookie.load_cookie(
             self, application.config.cookie_name,
             application.config.secret_key.encode('utf-8')
@@ -147,6 +149,20 @@ class Request(BaseRequest, ETagRequestMixin):
             else:
                 self.login(user)
         self.user.update_last_visit()
+        users_to_delete = User.query.filter(and_(
+            User.confirmed==False,
+            User.last_visit <= (datetime.utcnow()-timedelta(days=1))
+        )).all()
+        delete_since = datetime.utcnow()-timedelta(days=60)
+        delete_since_query = User.query.filter(and_(
+            User.confirmed==False, User.last_visit < delete_since)
+        )
+        if self.user.is_admin:
+            self.session.setdefault('flashes', []).append(
+                "Cleaned up %d old sessions" % delete_since_query.count()
+            )
+        for user in delete_since_query:
+            session.delete(user)
         session.commit()
 
 class Response(BaseResponse):
