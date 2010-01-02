@@ -115,11 +115,26 @@ class Request(BaseRequest, ETagRequestMixin):
         if permanent:
             self.session['pmt'] = permanent
 
+    def cleanup_old_sessions(self):
+        from screener.database import User, session, and_
+        delete_since_query = User.query.filter(and_(
+            User.confirmed==False,
+            User.last_visit < datetime.utcnow()-timedelta(days=60))
+        )
+        delete_since_query_count = delete_since_query.count()
+        if self.user.is_admin and delete_since_query_count:
+            self.session.setdefault('flashes', []).append(
+                "Cleaned up %d old sessions" % delete_since_query_count
+            )
+        for user in delete_since_query:
+            session.delete(user)
+        session.commit()
+
     def logout(self):
         self.session.clear()
 
     def setup_cookie(self):
-        from screener.database import User, session, and_
+        from screener.database import User, session
         self.session = SecureCookie.load_cookie(
             self, application.config.cookie_name,
             application.config.secret_key.encode('utf-8')
@@ -150,18 +165,8 @@ class Request(BaseRequest, ETagRequestMixin):
                 self.login(user)
 
         self.user.update_last_visit()
-        delete_since_query = User.query.filter(and_(
-            User.confirmed==False,
-            User.last_visit < datetime.utcnow()-timedelta(days=60))
-        )
-        delete_since_query_count = delete_since_query.count()
-        if self.user.is_admin and delete_since_query_count:
-            self.session.setdefault('flashes', []).append(
-                "Cleaned up %d old sessions" % delete_since_query_count
-            )
-        for user in delete_since_query:
-            session.delete(user)
         session.commit()
+        self.cleanup_old_sessions()
 
 class Response(BaseResponse):
     """
