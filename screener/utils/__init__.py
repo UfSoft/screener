@@ -148,18 +148,16 @@ class Request(BaseRequest, ETagRequestMixin):
                     "their direct URL.")
             else:
                 self.login(user)
+
         self.user.update_last_visit()
-        users_to_delete = User.query.filter(and_(
-            User.confirmed==False,
-            User.last_visit <= (datetime.utcnow()-timedelta(days=1))
-        )).all()
-        delete_since = datetime.utcnow()-timedelta(days=60)
         delete_since_query = User.query.filter(and_(
-            User.confirmed==False, User.last_visit < delete_since)
+            User.confirmed==False,
+            User.last_visit < datetime.utcnow()-timedelta(days=60))
         )
-        if self.user.is_admin:
+        delete_since_query_count = delete_since_query.count()
+        if self.user.is_admin and delete_since_query_count:
             self.session.setdefault('flashes', []).append(
-                "Cleaned up %d old sessions" % delete_since_query.count()
+                "Cleaned up %d old sessions" % delete_since_query_count
             )
         for user in delete_since_query:
             session.delete(user)
